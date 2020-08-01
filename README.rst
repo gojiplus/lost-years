@@ -45,6 +45,20 @@ The package exposes two functions: ``lost_years_ssa`` and ``lost_years_hld``:
 
         * To make it easier to use, we normalize the column names. The translation between HLD column names and new column names is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/hld_translation.csv>`__
 
+* ``lost_years_who``: Joins to the international `life table <https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en>`__ data.
+
+    * **Inputs:** 
+
+        * The function expects 4 inputs: ``age, sex, year, and country``. If any of the inputs are not available, it errors out.
+      
+        * **Closest Year and Age Matching** By default, we match to the closest year; not all countries provide expected years left for all years or all ages. The year we match to is ``hld_year1``. Same for age. If the age provided is not available, we match to the closest age and store the matched age in the ``who_age`` column.
+
+    * **What the function does**
+
+        * WHO exposes more facets than age and sex. For some countries, for some periods.
+
+    * **Output**
+        * To make it easier to use, we normalize the column names. The translation between WHO column names and new column names is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/who_translation.csv>`__
 
 Application
 ~~~~~~~~~~~~~~~~
@@ -112,6 +126,30 @@ From the command line
                                 Output file with Lost Years data column(s)
           --download-hld        Download latest HLD from lifetable.de
 
+* ``lost_years_who``
+
+    ::
+
+        usage: lost_years_who [-h] [-c COUNTRY] [-a AGE] [-s SEX] [-y YEAR]
+                            [-o OUTPUT]
+                            input
+
+        Appends Lost Years data column(s) by country, age, sex and year
+
+        positional arguments:
+        input                 Input file
+
+        optional arguments:
+        -h, --help            show this help message and exit
+        -c COUNTRY, --country COUNTRY
+                                Columns name of country in the input
+                                file(default=`country`)
+        -a AGE, --age AGE     Columns name of age in the input file(default=`age`)
+        -s SEX, --sex SEX     Columns name of sex in the input file(default=`sex`)
+        -y YEAR, --year YEAR  Columns name of year in the input file(default=`year`)
+        -o OUTPUT, --output OUTPUT
+                                Output file with Lost Years data column(s)
+
 Example
 ~~~~~~~
 
@@ -130,7 +168,7 @@ As an External Library with Pandas DataFrame
 ::
 
     >>> import pandas as pd
-    >>> from lost_years import lost_years_ssa, lost_years_hld
+    >>> from lost_years import lost_years_ssa, lost_years_hld, lost_years_who
     >>>
     >>> df = pd.read_csv('lost_years/tests/input.csv')
     >>> df
@@ -210,9 +248,38 @@ As an External Library with Pandas DataFrame
                                             'sex': 'sex', 'year': 'year'})
         Returns:
             DataFrame: Pandas DataFrame with HLD data columns:-
-                'hld_country', 'hld_age', 'hld_sex', 'hld_year1', ...
-    
+                'hld_country', 'hld_age', 'hld_sex', 'hld_year1', ...    
+    >>>
+    >>> lost_years_who(df)
+    year country  age sex  who_age who_country  who_life_expectancy who_sex  who_year
+    0  2003     BRA   80   M       80         BRA                  5.7     MLE      2003
+    1  2019     BLZ    5   M        5         BLZ                 64.0     MLE      2016
+    2  1999     PHL   62   F       60         PHL                 18.2    FMLE      2000
+    3  2001     THA    7   F        5         THA                 71.2    FMLE      2001
+    4  2006     CHE   57   F       55         CHE                 30.6    FMLE      2006
+    5  2014     MNE   44   M       45         MNE                 30.8     MLE      2014
+    6  2004     SLV   34   F       35         SLV                 42.8    FMLE      2004
+    7  2003     MKD   46   M       45         MKD                 28.9     MLE      2003
+    8  2014     MKD    6   F        5         MKD                 73.4    FMLE      2014
+    9  1997     LBN   49   F       50         LBN                 28.6    FMLE      2000
+    >>>
+    >>> help(lost_years_who)
+    Help on method lost_years_who in module lost_years.who:
 
+    lost_years_who(df, cols=None) method of builtins.type instance
+        Appends Life expectancy column from WHO data to the input DataFrame
+        based on country, age, sex and year in the specific cols mapping
+
+        Args:
+            df (:obj:`DataFrame`): Pandas DataFrame containing the last name
+                column.
+            cols (dict or None): Column mapping for country, age, sex, and year
+                in DataFrame
+                (None for default mapping: {'country': 'country', 'age': 'age',
+                                            'sex': 'sex', 'year': 'year'})
+        Returns:
+            DataFrame: Pandas DataFrame with WHO data columns:-
+                'who_country', 'who_age', 'who_sex', 'who_year', ...
 
 Documentation
 -------------
