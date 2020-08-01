@@ -59,7 +59,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.2.1',
+    version='0.3.0',
 
     description='Get Expected Number of Years Lost',
     long_description=long_description,
@@ -132,6 +132,8 @@ setup(
     package_data={
         'lost_years': ['data/ssa.csv',
                        'data/hld_translation.csv',
+                       'data/who-lt.csv.gz',
+                       'data/who_translation.csv',
                        'tests/input.csv'],
     },
     
@@ -145,7 +147,8 @@ setup(
     entry_points={
         'console_scripts': [
             'lost_years_ssa=lost_years.ssa:main',
-            'lost_years_hld=lost_years.hld:main'
+            'lost_years_hld=lost_years.hld:main',
+            'lost_years_who=lost_years.who:main'
         ],
     },
     cmdclass={
