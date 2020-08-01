@@ -1,0 +1,6 @@
+original_name,new_name
+COUNTRY (CODE),country
+YEAR (CODE),year
+SEX (CODE),sex
+AGEGROUP (CODE),age
+Display Value,life_expectancy
