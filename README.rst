@@ -14,43 +14,43 @@ Lost Years: Expected Number of Years Lost
 
 The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__ and `life table <https://www.lifetable.de/cgi-bin/data.php>`__.
 
-The package exposes two functions: ``lost_years_ssa`` and ``lost_years_hld``: 
+The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and ``lost_years_who``: 
 
-* ``lost_years_ssa``: Joins to the final SSA dataset stored `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa.csv>`__. The data are from `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__ 
+* ``lost_years_ssa``: Joins to the final SSA dataset stored `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa.csv>`__. The data are from `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__
 
-    * **Inputs:** 
+    * **Inputs:**
 
         * The function expects 4 inputs: ``age, sex, and year``. If any of the inputs are not available, it errors out.
         * **Closest Year and Age Matching** By default, we match to the closest year; The year we match to is stored as ``ssa_year.`` Same for age. If the age provided is not available, we match to the closest age and store the matched age in the ``ssa_age`` column.
-    
-    * **What the function does**
-        
-        * While ``lost_years_ssa`` is technically only applicable for the US, we make it so that the function ignores the ``country`` argument and gives you the counterfactual of what the expected years lost would be if the person who died (or is predicted to die) was in the US. (You can of course do the same for HLD by changing the country.) 
-        
-* ``lost_years_hld``: Joins to the international `life table <https://www.lifetable.de/cgi-bin/data.php>`__ data. 
 
-    * **Inputs:** 
+    * **What the function does**
+
+        * While ``lost_years_ssa`` is technically only applicable for the US, we make it so that the function ignores the ``country`` argument and gives you the counterfactual of what the expected years lost would be if the person who died (or is predicted to die) was in the US. (You can of course do the same for HLD by changing the country.)
+
+* ``lost_years_hld``: Joins to the international `life table <https://www.lifetable.de/cgi-bin/data.php>`__ data.
+
+    * **Inputs:**
 
         * The function expects 4 inputs: ``age, sex, year, and country``. If any of the inputs are not available, it errors out.
-      
+
         * **Closest Year and Age Matching** By default, we match to the closest year; not all countries provide expected years left for all years or all ages. The year we match to is ``hld_year1``. Same for age. If the age provided is not available, we match to the closest age and store the matched age in the ``hld_age`` column.
 
     * **What the function does**
 
-        * HLD exposes more facets than age and sex. For some countries, for some periods, it also provides things like sociodemographic variables. To not lose information, we provide **multiple rows---corresponding to each sub-combination---per match**. 
+        * HLD exposes more facets than age and sex. For some countries, for some periods, it also provides things like sociodemographic variables. To not lose information, we provide **multiple rows---corresponding to each sub-combination---per match**.
 
     * **Output**
 
-        * The original codebook for HLD is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/formats.pdf>`__. For more information, check `HLD <https://www.lifetable.de/cgi-bin/hld_codes.php>`__. 
+        * The original codebook for HLD is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/formats.pdf>`__. For more information, check `HLD <https://www.lifetable.de/cgi-bin/hld_codes.php>`__.
 
         * To make it easier to use, we normalize the column names. The translation between HLD column names and new column names is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/hld_translation.csv>`__
 
 * ``lost_years_who``: Joins to the international `life table <https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en>`__ data.
 
-    * **Inputs:** 
+    * **Inputs:**
 
         * The function expects 4 inputs: ``age, sex, year, and country``. If any of the inputs are not available, it errors out.
-      
+
         * **Closest Year and Age Matching** By default, we match to the closest year; not all countries provide expected years left for all years or all ages. The year we match to is ``hld_year1``. Same for age. If the age provided is not available, we match to the closest age and store the matched age in the ``who_age`` column.
 
     * **What the function does**
@@ -83,14 +83,14 @@ From the command line
 * ``lost_years_ssa``
 
     ::
-    
+
         usage: lost_years_ssa [-h] [-a AGE] [-s SEX] [-y YEAR] [-o OUTPUT] input
-        
+
         Appends Lost Years data column(s) by age, sex and year
-        
+
         positional arguments:
           input                 Input file
-        
+
         optional arguments:
           -h, --help            show this help message and exit
           -a AGE, --age AGE     Columns name of age in the input file(default=`age`)
@@ -98,22 +98,22 @@ From the command line
           -y YEAR, --year YEAR  Columns name of year in the input file(default=`year`)
           -o OUTPUT, --output OUTPUT
                                 Output file with Lost Years data column(s)
-    
 
-        
+
+
 * ``lost_years_hld``
 
     ::
-    
+
         usage: lost_years_hld [-h] [-c COUNTRY] [-a AGE] [-s SEX] [-y YEAR]
                               [-o OUTPUT] [--download-hld]
                               input
-        
+
         Appends Lost Years data column(s) by country, age, sex and year
-        
+
         positional arguments:
           input                 Input file
-        
+
         optional arguments:
           -h, --help            show this help message and exit
           -c COUNTRY, --country COUNTRY
@@ -211,16 +211,16 @@ As an External Library with Pandas DataFrame
     7  2003     MKD   46   M         MKD  ...       1      46                1               28.36                     28.36
     8  2014     MKD    6   F         MKD  ...       2       6                1               72.26                     72.25
     9  1997     LBN   49   F         LBN  ...       2      50                5               27.48                      27.7
-    
+
     [12 rows x 19 columns]
     >>>
     >>> help(lost_years_ssa)
     Help on method lost_years_ssa in module lost_years.ssa:
-    
+
     lost_years_ssa(df, cols=None) method of builtins.type instance
         Appends Life expectancycolumn from SSA data to the input DataFrame
         based on age, sex and year in the specific cols mapping
-    
+
         Args:
             df (:obj:`DataFrame`): Pandas DataFrame containing the last name
                 column.
@@ -234,11 +234,11 @@ As an External Library with Pandas DataFrame
     >>>
     >>> help(lost_years_hld)
     Help on method lost_years_hld in module lost_years.hld:
-    
+
     lost_years_hld(df, cols=None, download_latest=False) method of builtins.type instance
         Appends Life expectancy column from HLD data to the input DataFrame
         based on country, age, sex and year in the specific cols mapping
-    
+
         Args:
             df (:obj:`DataFrame`): Pandas DataFrame containing the last name
                 column.
@@ -248,7 +248,7 @@ As an External Library with Pandas DataFrame
                                             'sex': 'sex', 'year': 'year'})
         Returns:
             DataFrame: Pandas DataFrame with HLD data columns:-
-                'hld_country', 'hld_age', 'hld_sex', 'hld_year1', ...    
+                'hld_country', 'hld_age', 'hld_sex', 'hld_year1', ...
     >>>
     >>> lost_years_who(df)
     year country  age sex  who_age who_country  who_life_expectancy who_sex  who_year
