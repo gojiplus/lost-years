@@ -71,7 +71,7 @@ class LostYearsWHOData():
         for i, r in df.iterrows():
             sdf = cls.__df
             for c in ['country', 'age', 'sex', 'year']:
-                if sdf[c].dtype in ['int64', 'float64']:
+                if sdf[c].dtype in ['int32', 'int64', 'float64']:
                     sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
                 else:
                     sdf = sdf[sdf[c].str.lower()==r[df_cols[c]].lower()]
