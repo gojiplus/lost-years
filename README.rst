@@ -12,9 +12,9 @@ Lost Years: Expected Number of Years Lost
 .. image:: https://pepy.tech/badge/lost-years
     :target: https://pepy.tech/project/lost-years
 
-The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__ and `life table <https://www.lifetable.de/cgi-bin/data.php>`__.
+The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`, `HLD data <https://www.lifetable.de/cgi-bin/data.php>`__, and `WHO life table data <https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en>`__.
 
-The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and ``lost_years_who``: 
+The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and ``lost_years_who``:
 
 * ``lost_years_ssa``: Joins to the final SSA dataset stored `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa.csv>`__. The data are from `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__
 
@@ -55,7 +55,7 @@ The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and
 
     * **What the function does**
 
-        * WHO exposes more facets than age and sex. For some countries, for some periods.
+        * Joins to WHO data
 
     * **Output**
         * To make it easier to use, we normalize the column names. The translation between WHO column names and new column names is posted `here <https://github.com/gojiplus/lost_years/blob/master/lost_years/data/who_translation.csv>`__
@@ -63,7 +63,11 @@ The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and
 Application
 ~~~~~~~~~~~~~~~~
 
-We `illustrate the use of the package <https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus.ipynb>`__ by estimating the average number of years by which people's lives are shortened due to coronavirus. Using data from `Table 1 of the paper <http://weekly.chinacdc.cn/en/article/id/e53946e2-c6c4-41e9-9a9b-fea8db1a8f51>`__ that gives us the distribution of ages of people who died from COVID-19 in China, with conservative assumptions (assuming the gender of the dead person to be male, taking the middle of age ranges) we find that people's lives are shortened by about 11 years on average. These estimates are conservative for one additional reason: there is likely an inverse correlation between people who die and their expected longevity. And note that given a bulk of the deaths are among older people, when people are more infirm, the quality-adjusted years lost is likely yet more modest. Given that the last life tables from China are from 1981 and given life expectancy in China has risen substantially since then (though most gains come from reductions in childhood mortality, etc.), we exploit the recent data from the US, simulating what the losses would be if people had the same aggregate life tables as Americans. Using the most recent SSA data, we find that the number to be 16. Compare this to deaths from road accidents, the modal reason for death among 5-24, and 25-44 ages in the US. Assuming everyone who dies from a traffic accident is a man, and assuming the age of death to be 25, we get ~52 years, roughly 3x as large as coronavirus.
+We illustrate the use of the package by estimating the average number of years by which people's lives are shortened due to coronavirus.
+
+**China:** Using data from `Table 1 of the paper <http://weekly.chinacdc.cn/en/article/id/e53946e2-c6c4-41e9-9a9b-fea8db1a8f51>`__ that gives us the distribution of ages of people who died from COVID-19 in China, with conservative assumptions (assuming the gender of the dead person to be male, taking the middle of age ranges) `we find <https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus.ipynb>`__ that people's lives are shortened by about 11 years on average. These estimates are conservative for one additional reason: there is likely an inverse correlation between people who die and their expected longevity. And note that given a bulk of the deaths are among older people, when people are more infirm, the quality-adjusted years lost is likely yet more modest. Given that the last life tables from China are from 1981 and given life expectancy in China has risen substantially since then (though most gains come from reductions in childhood mortality, etc.), we exploit the recent data from the US, simulating what the losses would be if people had the same aggregate life tables as Americans. Using the most recent SSA data, we find that the number to be 16. Compare this to deaths from road accidents, the modal reason for death among 5-24, and 25-44 ages in the US. Assuming everyone who dies from a traffic accident is a man, and assuming the age of death to be 25, we get ~52 years, roughly 3x as large as coronavirus.
+
+**France:** Using `COVID-19 Electronic Death Certification Data (CEPIDC) <https://www.data.gouv.fr/fr/datasets/donnees-de-certification-electronique-des-deces-associes-au-covid-19-cepidc/>`__, like above, we estimate the average number of years lost by people dying of coronavirus. With conservative assumptions (assuming gender of the dead person to be male, taking the middle of age ranges) `we find <https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus_fr.ipynb>`__ that people's lives are shortened by about 9 years on average. Surprisingly, the average number of years lost of the people dying of coronavirus `remained steady <https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus_fr_daily.ipynb>`__ at about 9 years between March and July 2020.
 
 Installation
 ~~~~~~~~~~~~
@@ -93,9 +97,9 @@ From the command line
 
         optional arguments:
           -h, --help            show this help message and exit
-          -a AGE, --age AGE     Columns name of age in the input file(default=`age`)
-          -s SEX, --sex SEX     Columns name of sex in the input file(default=`sex`)
-          -y YEAR, --year YEAR  Columns name of year in the input file(default=`year`)
+          -a AGE, --age AGE     Column name for age in the input file (default = `age`)
+          -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
+          -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
           -o OUTPUT, --output OUTPUT
                                 Output file with Lost Years data column(s)
 
@@ -117,11 +121,11 @@ From the command line
         optional arguments:
           -h, --help            show this help message and exit
           -c COUNTRY, --country COUNTRY
-                                Columns name of country in the input
-                                file(default=`country`)
-          -a AGE, --age AGE     Columns name of age in the input file(default=`age`)
-          -s SEX, --sex SEX     Columns name of sex in the input file(default=`sex`)
-          -y YEAR, --year YEAR  Columns name of year in the input file(default=`year`)
+                                Column name for country in the input
+                                file (default = `country`)
+          -a AGE, --age AGE     Column name for age in the input file (default = `age`)
+          -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
+          -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
           -o OUTPUT, --output OUTPUT
                                 Output file with Lost Years data column(s)
           --download-hld        Download latest HLD from lifetable.de
@@ -142,11 +146,11 @@ From the command line
         optional arguments:
         -h, --help            show this help message and exit
         -c COUNTRY, --country COUNTRY
-                                Columns name of country in the input
-                                file(default=`country`)
-        -a AGE, --age AGE     Columns name of age in the input file(default=`age`)
-        -s SEX, --sex SEX     Columns name of sex in the input file(default=`sex`)
-        -y YEAR, --year YEAR  Columns name of year in the input file(default=`year`)
+                                Column name for country in the input
+                                file (default = `country`)
+        -a AGE, --age AGE     Column name for age in the input file (default = `age`)
+        -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
+        -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
         -o OUTPUT, --output OUTPUT
                                 Output file with Lost Years data column(s)
 
