@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Laohaprapanon"
+  given-names: "Suriyan"
+- family-names: "Sood"
+  given-names: "Gaurav"
+title: "Lost Years: Expected Number of Years Lost"
+version: 0.3.1
+date-released: 2020-08-1
+url: "https://github.com/gojiplus/lost_years"
