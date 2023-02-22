@@ -3,8 +3,6 @@ Lost Years: Expected Number of Years Lost
 
 .. image:: https://travis-ci.org/gojiplus/lost_years.svg?branch=master
     :target: https://travis-ci.org/gojiplus/lost_years
-.. image:: https://ci.appveyor.com/api/projects/status/fhuyx2mdm1j05q6j?svg=true
-    :target: https://ci.appveyor.com/project/soodoku/lost-years
 .. image:: https://img.shields.io/pypi/v/lost_years.svg
     :target: https://pypi.python.org/pypi/lost_years
 .. image:: https://readthedocs.org/projects/lost-years/badge/?version=latest
