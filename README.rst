@@ -5,7 +5,7 @@ Lost Years: Expected Number of Years Lost
     :target: https://pypi.python.org/pypi/lost_years
 .. image:: https://readthedocs.org/projects/lost-years/badge/?version=latest
     :target: http://lost-years.readthedocs.io/en/latest/?badge=latest
-.. image:: https://pepy.tech/badge/lost-years
+.. image:: https://static.pepy.tech/badge/lost_years
     :target: https://pepy.tech/project/lost-years
 
 The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__, `HLD data <https://www.lifetable.de/cgi-bin/data.php>`__, and `WHO life table data <https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en>`__.
