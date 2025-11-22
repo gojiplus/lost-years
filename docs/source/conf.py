@@ -12,9 +12,10 @@ project = "lost_years"
 copyright = "2024, Gaurav Sood, Suriyan Laohaprapanon"
 author = "Gaurav Sood, Suriyan Laohaprapanon"
 
-# The version info for the project
-version = "0.4.0"
-release = "0.4.0"
+# The version info for the project - import from package
+import lost_years
+version = lost_years.__version__
+release = version
 
 
 # -- General configuration ---------------------------------------------------
@@ -113,8 +114,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'lost_years.tex', u'lost_years Documentation',
-     u'Gaurav Sood, Suriyan Laohaprapanon', 'manual'),
+    (root_doc, 'lost_years.tex', 'lost_years Documentation',
+     'Gaurav Sood, Suriyan Laohaprapanon', 'manual'),
 ]
 
 
@@ -123,7 +124,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'lost_years', u'lost_years Documentation',
+    (root_doc, 'lost_years', 'lost_years Documentation',
      [author], 1)
 ]
 
@@ -134,7 +135,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'lost_years', u'lost_years Documentation',
-     author, 'lost_years', 'Infer Caste from Indian Names',
+    (root_doc, 'lost_years', 'lost_years Documentation',
+     author, 'lost_years', 'Get Expected Number of Years Lost',
      'Miscellaneous'),
 ]

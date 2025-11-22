@@ -1,0 +1,134 @@
+name: Data Update Check
+
+on:
+  schedule:
+    # Run monthly on the 1st at 2 AM UTC
+    - cron: '0 2 1 * *'
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Data source to update (ssa, who, hmd, all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - ssa
+        - who
+        - hmd
+
+jobs:
+  check-data-updates:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Check for data updates
+      run: |
+        uv run python scripts/update_data.py --source ${{ github.event.inputs.source || 'all' }}
+
+    - name: Generate data sources config
+      run: |
+        uv run python scripts/update_data.py --config
+
+    - name: Create issue if updates needed
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Check if data_sources.json was created
+          try {
+            const config = JSON.parse(fs.readFileSync('data_sources.json', 'utf8'));
+            
+            let needsUpdate = false;
+            let updateNotes = [];
+            
+            // Check each data source
+            for (const [source, info] of Object.entries(config)) {
+              const currentYear = new Date().getFullYear();
+              const dataYear = info.latest_year;
+              
+              if (currentYear - dataYear > 1) {
+                needsUpdate = true;
+                updateNotes.push(`- **${source.toUpperCase()}**: Data is from ${dataYear}, ${currentYear - dataYear} years behind`);
+              }
+            }
+            
+            if (needsUpdate) {
+              const issueTitle = '📊 Life Table Data Update Available';
+              const issueBody = `
+              ## Data Update Notification
+              
+              The following data sources have newer versions available:
+              
+              ${updateNotes.join('\n')}
+              
+              ## Action Required
+              
+              1. **Manual Updates Needed**: Most data sources require manual download due to access restrictions
+              2. **SSA Data**: Visit [SSA Period Life Tables](https://www.ssa.gov/oact/HistEst/PerLifeTables/2024/PerLifeTables2024.html)
+              3. **WHO Data**: Contact mortality@who.int for API access to [WHO Platform](https://platform.who.int/mortality)
+              4. **HMD Data**: Register at [mortality.org](https://www.mortality.org/) for access
+              
+              ## Next Steps
+              
+              - [ ] Download latest SSA data files
+              - [ ] Update WHO data via API
+              - [ ] Refresh HMD data
+              - [ ] Test updated data with package
+              - [ ] Update version number in package
+              - [ ] Create PR with updated data
+              
+              ## Automation Status
+              
+              This issue was automatically created by the Data Update Check workflow.
+              Run \`python scripts/update_data.py\` for detailed instructions.
+              
+              ---
+              *Auto-generated on ${new Date().toISOString()}*
+              `;
+              
+              // Check if similar issue already exists
+              const existingIssues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'data-update',
+                state: 'open'
+              });
+              
+              if (existingIssues.data.length === 0) {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: issueTitle,
+                  body: issueBody,
+                  labels: ['data-update', 'enhancement']
+                });
+                
+                console.log('Created data update issue');
+              } else {
+                console.log('Data update issue already exists');
+              }
+            } else {
+              console.log('Data is current - no updates needed');
+            }
+          } catch (error) {
+            console.log('Could not read data sources config:', error.message);
+          }

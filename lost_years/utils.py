@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 
 import sys
+
 import requests
 
 
@@ -24,8 +24,8 @@ def column_exists(df, col):
 
     """
     if col and (col not in df.columns):
-        print("The specify column `{0!s}` not found in the input file"
-              .format(col))
+        print(f"The specify column `{col!s}` not found in the input file"
+              )
         return False
     else:
         return True
@@ -44,7 +44,7 @@ def fixup_columns(cols):
     out_cols = []
     for col in cols:
         if type(col) == int:
-            out_cols.append('col{:d}'.format(col))
+            out_cols.append(f'col{col:d}')
         else:
             out_cols.append(col)
     return out_cols

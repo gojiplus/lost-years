@@ -4,5 +4,12 @@ from .hld import lost_years_hld
 from .ssa import lost_years_ssa
 from .who import lost_years_who
 
-__version__ = "0.4.0"
+# Get version from package metadata
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
+
+__version__ = version("lost_years")
+
 __all__ = ["lost_years_ssa", "lost_years_hld", "lost_years_who"]

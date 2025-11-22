@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-import sys
 import argparse
+import sys
+
 import pandas as pd
 
 try:
@@ -10,13 +10,13 @@ try:
 except ImportError:
     from importlib_resources import files
 
-from .utils import column_exists, fixup_columns, closest
+from .utils import closest, column_exists, fixup_columns
 
-SSA_DATA = str(files("lost_years") / "data" / "ssa.csv")
+SSA_DATA = str(files("lost_years") / "data" / "ssa" / "ssa.csv")
 SSA_COLS = ['age', 'male_life_expectancy', 'female_life_expectancy', 'year']
 
 
-class LostYearsSSAData():
+class LostYearsSSAData:
     __df = None
 
     @classmethod
@@ -39,7 +39,7 @@ class LostYearsSSAData():
         for col in ['age', 'sex', 'year']:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
-                print("No column `{0!s}` in the DataFrame".format(tcol))
+                print(f"No column `{tcol!s}` in the DataFrame")
                 return df
             df_cols[col] = tcol
 
@@ -91,21 +91,21 @@ def main(argv=sys.argv[1:]):
     df = pd.read_csv(args.input)
 
     if not column_exists(df, args.age):
-        print("Column: `{0!s}` not found in the input file".format(args.age))
+        print(f"Column: `{args.age!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.sex):
-        print("Column: `{0!s}` not found in the input file".format(args.sex))
+        print(f"Column: `{args.sex!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.year):
-        print("Column: `{0!s}` not found in the input file".format(args.year))
+        print(f"Column: `{args.year!s}` not found in the input file")
         return -1
 
     rdf = lost_years_ssa(df, cols={'age': args.age, 'sex': args.sex,
                                    'year': args.year})
 
-    print("Saving output to file: `{0:s}`".format(args.output))
+    print(f"Saving output to file: `{args.output:s}`")
     rdf.columns = fixup_columns(rdf.columns)
     rdf.to_csv(args.output, index=False)
 

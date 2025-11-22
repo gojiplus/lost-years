@@ -1,0 +1,23 @@
+{
+  "ssa": {
+    "url": "https://www.ssa.gov/oact/HistEst/PerLifeTables/2024/PerLifeTables2024.html",
+    "description": "US Social Security Administration Period Life Tables",
+    "latest_year": 2024,
+    "access_method": "manual_download",
+    "notes": "Requires manual download due to website restrictions"
+  },
+  "who": {
+    "url": "https://platform.who.int/mortality",
+    "description": "WHO Mortality Database (new platform)",
+    "latest_year": 2023,
+    "access_method": "api_with_credentials",
+    "notes": "Contact mortality@who.int for API access"
+  },
+  "hmd": {
+    "url": "https://www.mortality.org/",
+    "description": "Human Mortality Database",
+    "latest_year": 2024,
+    "access_method": "api_with_registration",
+    "notes": "Requires registration at mortality.org"
+  }
+}

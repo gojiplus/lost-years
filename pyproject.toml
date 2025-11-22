@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lost_years"
-dynamic = ["version"]
+version = "0.5.0"
 description = "Get Expected Number of Years Lost"
 readme = "README.rst"
 license = "MIT"
@@ -18,8 +18,10 @@ maintainers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "beautifulsoup4>=4.14.2",
     "pandas",
     "requests",
+    "selenium>=4.38.0",
 ]
 keywords = [
     "lost years",
@@ -58,20 +60,13 @@ test = [
     "pytest-cov",
     "coverage",
 ]
-docs = [
-    "sphinx>=7.0",
-    "furo",
-    "sphinx-autodoc-typehints",
-]
 dev = [
-    "lost_years[test,docs]",
+    "lost_years[test]",
     "ruff",
     "black",
     "mypy",
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = "lost_years.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["lost_years*"]
@@ -86,6 +81,8 @@ target-version = ["py311"]
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -97,15 +94,17 @@ select = [
 ]
 ignore = []
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"examples/**/*.ipynb" = ["E501", "UP031", "I001", "E402", "F401"]  # Allow notebook issues
+"**/scrape-*.ipynb" = ["E501", "UP031", "I001", "E402", "F401", "E741"]  # Allow data notebook issues
 
 [tool.pytest.ini_options]
 testpaths = ["lost_years/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=lost_years --cov-report=term-missing --cov-report=html"
+addopts = ""
 
 [tool.mypy]
 python_version = "3.11"
@@ -125,3 +124,13 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = ["pandas.*", "requests.*"]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.6",
+]
+docs = [
+    "sphinx>=7.0",
+    "furo", 
+    "sphinx-autodoc-typehints",
+]

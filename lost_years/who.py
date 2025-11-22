@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-import os
-import sys
 import argparse
 import re
+import sys
+
 import pandas as pd
 
 try:
@@ -12,16 +11,13 @@ try:
 except ImportError:
     from importlib_resources import files
 
-from .utils import column_exists, fixup_columns, closest
+from .utils import closest, column_exists, fixup_columns
 
-WHO_DATA = str(files("lost_years") / "data" / "who-lt.csv.gz")
-WHO_TRANS = str(files("lost_years") / "data" / "who_translation.csv")
-WHO_COLS = ['COUNTRY (CODE)', 'YEAR (CODE)', 'SEX (CODE)',
-            'AGEGROUP (CODE)', 'Display Value', 'GHO (CODE)']
-WHO_COLS_REMAP = {'year': 'year'}
+WHO_DATA = str(files("lost_years") / "data" / "who" / "who.csv.gz")
+WHO_COLS = ['country_code', 'year', 'sex_code', 'life_expectancy', 'low_ci', 'high_ci']
 
 
-class LostYearsWHOData():
+class LostYearsWHOData:
     __df = None
     __who_trans = {}
 
@@ -45,26 +41,20 @@ class LostYearsWHOData():
         for col in ['country', 'age', 'sex', 'year']:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
-                print("No column `{0!s}` in the DataFrame".format(tcol))
+                print(f"No column `{tcol!s}` in the DataFrame")
                 return df
             df_cols[col] = tcol
 
         if cls.__df is None:
-            cls.__df = pd.read_csv(WHO_DATA, usecols=WHO_COLS,
-                                   low_memory=False)
-            cls.__df.drop(cls.__df.loc[cls.__df['GHO (CODE)']!='LIFE_0000000035'].index, inplace=True)
-            cls.__df.drop(columns=['GHO (CODE)'], inplace=True)
-            cls.__who_trans = {}
-            with open(WHO_TRANS) as f:
-                for l in f:
-                    a = l.strip().split(',')
-                    if len(a) == 2:
-                        cls.__who_trans[a[0]] = a[1]
-            cls.__df.rename(columns=cls.__who_trans, inplace=True)                        
-            cls.__df.rename(columns=WHO_COLS_REMAP, inplace=True)
-            cls.__df.drop_duplicates(inplace=True)
-            cls.__df['age'] = cls.__df['age'].apply(lambda c: cls.convert_agegroup(c))
-            cls.__df['year'] = cls.__df['year'].astype(int)
+            cls.__df = pd.read_csv(WHO_DATA, compression='gzip')
+            # Data is already clean with schema-compliant columns
+            # Add age column (WHO data is life expectancy at birth)
+            cls.__df['age'] = 1  # Life expectancy at birth maps to age 1 for lookup
+            # Rename for consistency with existing interface
+            cls.__df = cls.__df.rename(columns={
+                'country_code': 'country',
+                'sex_code': 'sex'
+            })
 
         # back up and create temp sex column
         df.rename(columns={df_cols['sex']: '__sex'}, inplace=True)
@@ -78,12 +68,11 @@ class LostYearsWHOData():
                     sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
                 else:
                     sdf = sdf[sdf[c].str.lower()==r[df_cols[c]].lower()]
-            odf = sdf.copy()
+            # Select relevant columns and rename for output
+            odf = sdf[['age', 'country', 'sex', 'year', 'life_expectancy']].copy()
             odf['index'] = i
             out_df = pd.concat([out_df, odf])
         out_df.set_index('index', drop=True, inplace=True)
-        remap = dict([(value, key) for key, value in WHO_COLS_REMAP.items()]) 
-        out_df.rename(columns=remap, inplace=True)
         out_df.columns = ['who_' + c for c in out_df.columns]
         # take out temp and restore back sex column
         del df['sex']
@@ -136,25 +125,25 @@ def main(argv=sys.argv[1:]):
     df = pd.read_csv(args.input)
 
     if not column_exists(df, args.country):
-        print("Column: `{0!s}` not found in the input file".format(args.country))
+        print(f"Column: `{args.country!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.age):
-        print("Column: `{0!s}` not found in the input file".format(args.age))
+        print(f"Column: `{args.age!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.sex):
-        print("Column: `{0!s}` not found in the input file".format(args.sex))
+        print(f"Column: `{args.sex!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.year):
-        print("Column: `{0!s}` not found in the input file".format(args.year))
+        print(f"Column: `{args.year!s}` not found in the input file")
         return -1
 
     rdf = lost_years_who(df, cols={'country': args.country, 'age': args.age,
                                    'sex': args.sex, 'year': args.year})
 
-    print("Saving output to file: `{0:s}`".format(args.output))
+    print(f"Saving output to file: `{args.output:s}`")
     rdf.columns = fixup_columns(rdf.columns)
     rdf.to_csv(args.output, index=False)
 

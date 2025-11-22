@@ -8,7 +8,9 @@ Lost Years: Expected Number of Years Lost
 .. image:: https://static.pepy.tech/badge/lost_years
     :target: https://pepy.tech/project/lost-years
 
-The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/STATS/table4c6.html>`__, `HLD data <https://www.lifetable.de/cgi-bin/data.php>`__, and `WHO life table data <https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en>`__.
+The mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the `SSA actuarial data <https://www.ssa.gov/oact/HistEst/PerLifeTables/2024/PerLifeTables2024.html>`__, `HLD data <https://www.lifetable.de/>`__, and `WHO life table data <https://platform.who.int/mortality>`__.
+
+**Data Currency Note**: The packaged data covers years up to 2016. For the most recent data (2023-2024), use the data update script: ``python scripts/update_data.py``
 
 The package exposes three functions: ``lost_years_ssa``, ``lost_years_hld``, and ``lost_years_who``:
 
