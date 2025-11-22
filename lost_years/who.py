@@ -19,7 +19,7 @@ WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "hi
 
 class LostYearsWHOData:
     __df = None
-    __who_trans = {}
+    __who_trans: dict[str, str] = {}
 
     @classmethod
     def lost_years_who(cls, df, cols=None):
