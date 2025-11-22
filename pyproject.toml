@@ -62,9 +62,14 @@ test = [
 ]
 dev = [
     "lost_years[test]",
-    "ruff",
+    "ruff>=0.14.6",
     "black",
     "mypy",
+]
+docs = [
+    "sphinx>=7.0",
+    "furo", 
+    "sphinx-autodoc-typehints",
 ]
 
 
@@ -142,13 +147,3 @@ module = [
     "lost_years.hld"
 ]
 ignore_errors = true
-
-[dependency-groups]
-dev = [
-    "ruff>=0.14.6",
-]
-docs = [
-    "sphinx>=7.0",
-    "furo", 
-    "sphinx-autodoc-typehints",
-]
