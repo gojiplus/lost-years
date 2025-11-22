@@ -3,6 +3,8 @@
 import os
 import sys
 
+import lost_years
+
 # Add the package path for autodoc
 sys.path.insert(0, os.path.abspath("../../"))
 
@@ -13,7 +15,6 @@ copyright = "2024, Gaurav Sood, Suriyan Laohaprapanon"
 author = "Gaurav Sood, Suriyan Laohaprapanon"
 
 # The version info for the project - import from package
-import lost_years
 version = lost_years.__version__
 release = version
 
@@ -87,7 +88,7 @@ autodoc_default_options = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'lost_yearsdoc'
+htmlhelp_basename = "lost_yearsdoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -96,15 +97,12 @@ latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
-
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
@@ -114,8 +112,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (root_doc, 'lost_years.tex', 'lost_years Documentation',
-     'Gaurav Sood, Suriyan Laohaprapanon', 'manual'),
+    (
+        root_doc,
+        "lost_years.tex",
+        "lost_years Documentation",
+        "Gaurav Sood, Suriyan Laohaprapanon",
+        "manual",
+    ),
 ]
 
 
@@ -123,10 +126,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (root_doc, 'lost_years', 'lost_years Documentation',
-     [author], 1)
-]
+man_pages = [(root_doc, "lost_years", "lost_years Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -135,7 +135,13 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (root_doc, 'lost_years', 'lost_years Documentation',
-     author, 'lost_years', 'Get Expected Number of Years Lost',
-     'Miscellaneous'),
+    (
+        root_doc,
+        "lost_years",
+        "lost_years Documentation",
+        author,
+        "lost_years",
+        "Get Expected Number of Years Lost",
+        "Miscellaneous",
+    ),
 ]

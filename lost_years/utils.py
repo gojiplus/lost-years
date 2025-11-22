@@ -1,15 +1,8 @@
-
-import sys
-
 import requests
 
 
 def isstring(s):
-    # if we use Python 3
-    if (sys.version_info[0] >= 3):
-        return isinstance(s, str)
-    # we use Python 2
-    return isinstance(s, basestring)
+    return isinstance(s, str)
 
 
 def column_exists(df, col):
@@ -24,8 +17,7 @@ def column_exists(df, col):
 
     """
     if col and (col not in df.columns):
-        print(f"The specify column `{col!s}` not found in the input file"
-              )
+        print(f"The specify column `{col!s}` not found in the input file")
         return False
     else:
         return True
@@ -43,22 +35,22 @@ def fixup_columns(cols):
     """
     out_cols = []
     for col in cols:
-        if type(col) == int:
-            out_cols.append(f'col{col:d}')
+        if isinstance(col, int):
+            out_cols.append(f"col{col:d}")
         else:
             out_cols.append(col)
     return out_cols
 
 
 def closest(lst, c):
-    return lst[min(range(len(lst)), key = lambda i: abs(lst[i] - c))]
+    return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - c))]
 
 
 def download_file(url, local_path=None):
     if local_path is None:
-        local_path= url.split('/')[-1]
+        local_path = url.split("/")[-1]
     r = requests.get(url)
-    with open(local_path, 'wb') as f:
+    with open(local_path, "wb") as f:
         for chunk in r.iter_content(chunk_size=512 * 1024):
-            if chunk: # filter out keep-alive new chunks
+            if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)

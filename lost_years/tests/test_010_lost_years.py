@@ -12,21 +12,21 @@ class TestLostYears:
     @pytest.fixture
     def sample_data(self):
         """Load sample data for testing."""
-        return pd.read_csv('lost_years/tests/input.csv')
+        return pd.read_csv("lost_years/tests/input.csv")
 
     def test_lost_years_ssa(self, sample_data):
         """Test SSA lost years calculation."""
         result = lost_years_ssa(sample_data)
-        assert 'ssa_life_expectancy' in result.columns
+        assert "ssa_life_expectancy" in result.columns
         assert result.iloc[0].ssa_year >= 2004  # SSA data updated
 
     def test_lost_years_hld(self, sample_data):
         """Test HLD lost years calculation."""
         result = lost_years_hld(sample_data)
         # HLD requires external data file, so test may return original data if not available
-        if 'hld_life_expectancy' in result.columns:
-            assert 'hld_life_expectancy' in result.columns
-            assert 'hld_year' in result.columns
+        if "hld_life_expectancy" in result.columns:
+            assert "hld_life_expectancy" in result.columns
+            assert "hld_year" in result.columns
         else:
             # No HLD data available - function should return original data unchanged
             assert result.shape == sample_data.shape
@@ -34,5 +34,5 @@ class TestLostYears:
     def test_lost_years_who(self, sample_data):
         """Test WHO lost years calculation."""
         result = lost_years_who(sample_data)
-        assert 'who_life_expectancy' in result.columns
+        assert "who_life_expectancy" in result.columns
         assert result.iloc[0].who_year >= 2003  # WHO data may be updated

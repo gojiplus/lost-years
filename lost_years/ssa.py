@@ -13,7 +13,7 @@ except ImportError:
 from .utils import closest, column_exists, fixup_columns
 
 SSA_DATA = str(files("lost_years") / "data" / "ssa" / "ssa.csv")
-SSA_COLS = ['age', 'male_life_expectancy', 'female_life_expectancy', 'year']
+SSA_COLS = ["age", "male_life_expectancy", "female_life_expectancy", "year"]
 
 
 class LostYearsSSAData:
@@ -36,7 +36,7 @@ class LostYearsSSAData:
                 'ssa_age', 'ssa_year', 'ssa_life_expectancy'
         """
         df_cols = {}
-        for col in ['age', 'sex', 'year']:
+        for col in ["age", "sex", "year"]:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
                 print(f"No column `{tcol!s}` in the DataFrame")
@@ -48,18 +48,18 @@ class LostYearsSSAData:
 
         out_df = pd.DataFrame()
         for i, r in df.iterrows():
-            if r[df_cols['sex']].lower() in ['m', 'male']:
-                ecol = 'male_life_expectancy'
+            if r[df_cols["sex"]].lower() in ["m", "male"]:
+                ecol = "male_life_expectancy"
             else:
-                ecol = 'female_life_expectancy'
-            sdf = cls.__df[['age', 'year', ecol]]
-            for c in ['age', 'year']:
+                ecol = "female_life_expectancy"
+            sdf = cls.__df[["age", "year", ecol]]
+            for c in ["age", "year"]:
                 sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
-            odf = sdf[['age', 'year', ecol]].copy()
-            odf.columns = ['ssa_age', 'ssa_year', 'ssa_life_expectancy']
-            odf['index'] = i
+            odf = sdf[["age", "year", ecol]].copy()
+            odf.columns = ["ssa_age", "ssa_year", "ssa_life_expectancy"]
+            odf["index"] = i
             out_df = pd.concat([out_df, odf])
-        out_df.set_index('index', drop=True, inplace=True)
+        out_df.set_index("index", drop=True, inplace=True)
         rdf = df.join(out_df)
         return rdf
 
@@ -68,21 +68,33 @@ lost_years_ssa = LostYearsSSAData.lost_years_ssa
 
 
 def main(argv=sys.argv[1:]):
-    title = ('Appends Lost Years data column(s) by age, sex and year')
+    title = "Appends Lost Years data column(s) by age, sex and year"
     parser = argparse.ArgumentParser(description=title)
-    parser.add_argument('input', default=None,
-                        help='Input file')
-    parser.add_argument('-a', '--age', default='age',
-                        help='Columns name of age in the input file'
-                             '(default=`age`)')
-    parser.add_argument('-s', '--sex', default='sex',
-                        help='Columns name of sex in the input file'
-                             '(default=`sex`)')
-    parser.add_argument('-y', '--year', default='year',
-                        help='Columns name of year in the input file'
-                             '(default=`year`)')
-    parser.add_argument('-o', '--output', default='lost-years-output.csv',
-                        help='Output file with Lost Years data column(s)')
+    parser.add_argument("input", default=None, help="Input file")
+    parser.add_argument(
+        "-a",
+        "--age",
+        default="age",
+        help="Columns name of age in the input file(default=`age`)",
+    )
+    parser.add_argument(
+        "-s",
+        "--sex",
+        default="sex",
+        help="Columns name of sex in the input file(default=`sex`)",
+    )
+    parser.add_argument(
+        "-y",
+        "--year",
+        default="year",
+        help="Columns name of year in the input file(default=`year`)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="lost-years-output.csv",
+        help="Output file with Lost Years data column(s)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -102,8 +114,7 @@ def main(argv=sys.argv[1:]):
         print(f"Column: `{args.year!s}` not found in the input file")
         return -1
 
-    rdf = lost_years_ssa(df, cols={'age': args.age, 'sex': args.sex,
-                                   'year': args.year})
+    rdf = lost_years_ssa(df, cols={"age": args.age, "sex": args.sex, "year": args.year})
 
     print(f"Saving output to file: `{args.output:s}`")
     rdf.columns = fixup_columns(rdf.columns)
