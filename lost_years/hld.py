@@ -6,13 +6,16 @@ import sys
 import argparse
 import pandas as pd
 
-from pkg_resources import resource_filename
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
 from .utils import column_exists, fixup_columns, closest, download_file
 
 HLD_URL = 'https://www.lifetable.de/data/hld.zip'
-HLD_DATA = resource_filename(__name__, "data/hld.zip")
-HLD_TRANS = resource_filename(__name__, "data/hld_translation.csv")
+HLD_DATA = str(files("lost_years") / "data" / "hld.zip")
+HLD_TRANS = str(files("lost_years") / "data" / "hld_translation.csv")
 HLD_COLS = ['Country', 'Region', 'Residence', 'Ethnicity', 'SocDem',
             'Version', 'Ref-ID', 'Year1', 'Year2', 'TypeLT', 'Sex',
             'Age', 'AgeInt', 'e(x)', 'e(x)Orig']

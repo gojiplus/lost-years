@@ -5,11 +5,14 @@ import sys
 import argparse
 import pandas as pd
 
-from pkg_resources import resource_filename
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
 from .utils import column_exists, fixup_columns, closest
 
-SSA_DATA = resource_filename(__name__, "data/ssa.csv")
+SSA_DATA = str(files("lost_years") / "data" / "ssa.csv")
 SSA_COLS = ['age', 'male_life_expectancy', 'female_life_expectancy', 'year']
 
 

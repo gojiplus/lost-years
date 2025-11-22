@@ -7,12 +7,15 @@ import argparse
 import re
 import pandas as pd
 
-from pkg_resources import resource_filename
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
 from .utils import column_exists, fixup_columns, closest
 
-WHO_DATA = resource_filename(__name__, "data/who-lt.csv.gz")
-WHO_TRANS = resource_filename(__name__, "data/who_translation.csv")
+WHO_DATA = str(files("lost_years") / "data" / "who-lt.csv.gz")
+WHO_TRANS = str(files("lost_years") / "data" / "who_translation.csv")
 WHO_COLS = ['COUNTRY (CODE)', 'YEAR (CODE)', 'SEX (CODE)',
             'AGEGROUP (CODE)', 'Display Value', 'GHO (CODE)']
 WHO_COLS_REMAP = {'year': 'year'}
@@ -97,7 +100,7 @@ class LostYearsWHOData():
             return 85
         if ag == 'AGELT1':
             return 1
-        m = re.match('AGE(\d+)\-(\d+)', ag)
+        m = re.match(r'AGE(\d+)\-(\d+)', ag)
         if m:
             return int(m.group(1))
         else:
