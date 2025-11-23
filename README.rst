@@ -5,7 +5,7 @@ Lost Years: Expected Number of Years Lost
     :target: https://pypi.python.org/pypi/lost_years
 .. image:: https://github.com/gojiplus/lost_years/actions/workflows/ci.yml/badge.svg
     :target: https://github.com/gojiplus/lost_years/actions/workflows/ci.yml
- .. image:: https://github.com/gojiplus/lost_years/actions/workflows/docs.yml/badge.svg                                               
+.. image:: https://github.com/gojiplus/lost_years/actions/workflows/docs.yml/badge.svg                                               
     :target: https://github.com/gojiplus/lost_years/actions/workflows/docs.yml                                                 
     :alt: Documentation Status
 .. image:: https://static.pepy.tech/badge/lost_years
