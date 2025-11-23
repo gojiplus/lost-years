@@ -1,14 +1,14 @@
 Lost Years: Expected Number of Years Lost
 -----------------------------------------
 
-.. image:: https://img.shields.io/pypi/v/lost_years.svg
-    :target: https://pypi.python.org/pypi/lost_years
-.. image:: https://github.com/gojiplus/lost_years/actions/workflows/ci.yml/badge.svg
-    :target: https://github.com/gojiplus/lost_years/actions/workflows/ci.yml
-.. image:: https://github.com/gojiplus/lost_years/actions/workflows/docs.yml/badge.svg                                               
-    :target: https://github.com/gojiplus/lost_years/actions/workflows/docs.yml                                                 
+.. image:: https://img.shields.io/pypi/v/lost-years.svg
+    :target: https://pypi.python.org/pypi/lost-years
+.. image:: https://github.com/gojiplus/lost-years/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/gojiplus/lost-years/actions/workflows/ci.yml
+.. image:: https://github.com/gojiplus/lost-years/actions/workflows/docs.yml/badge.svg                                               
+    :target: https://github.com/gojiplus/lost-years/actions/workflows/docs.yml                                                 
     :alt: Documentation Status
-.. image:: https://static.pepy.tech/badge/lost_years
+.. image:: https://static.pepy.tech/badge/lost-years
     :target: https://pepy.tech/project/lost-years
 
 
