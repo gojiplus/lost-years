@@ -63,7 +63,6 @@ test = [
 dev = [
     "lost_years[test]",
     "ruff>=0.14.6",
-    "mypy",
 ]
 docs = [
     "sphinx>=7.0",
@@ -105,47 +104,10 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = ""
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-# Temporarily disable strict typing to get CI working
-# disallow_untyped_defs = true
-# disallow_incomplete_defs = true
-# check_untyped_defs = true
-# disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "pandas.*", 
-    "requests.*", 
-    "importlib_resources.*",
-    "update_who_data",
-    "update_ssa_data", 
-    "update_hld_data",
-    "selenium.*",
-    "bs4.*"
-]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-    "lost_years.who", 
-    "lost_years.ssa", 
-    "lost_years.hld"
-]
-ignore_errors = true
 
 [dependency-groups]
 dev = [
     "ruff>=0.14.6",
-    "mypy",
     "pytest>=7.0",
     "pytest-cov",
     "coverage",

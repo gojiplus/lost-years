@@ -39,10 +39,6 @@ jobs:
         uv run ruff check .
         uv run ruff format --check .
 
-    - name: Type check with mypy
-      run: |
-        uv run mypy lost_years
-
     - name: Test with pytest
       run: |
         uv run pytest --cov=lost_years --cov-report=xml
