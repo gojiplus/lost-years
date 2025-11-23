@@ -42,11 +42,3 @@ jobs:
     - name: Test with pytest
       run: |
         uv run pytest --cov=lost_years --cov-report=xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.11'
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
-        fail_ci_if_error: true
