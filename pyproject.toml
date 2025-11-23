@@ -75,6 +75,16 @@ docs = [
 [tool.uv.build-backend]
 module-name = "lost_years"
 module-root = ""
+wheel-exclude = [
+    "lost_years/data/**/*.zip",
+    "lost_years/data/**/*.ipynb",
+    "lost_years/data/**/update_*.py",
+]
+source-exclude = [
+    "lost_years/data/**/*.zip",
+    "lost_years/data/**/*.ipynb", 
+    "lost_years/data/**/update_*.py",
+]
 
 [tool.ruff]
 target-version = "py311"
