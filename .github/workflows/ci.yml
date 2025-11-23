@@ -42,3 +42,13 @@ jobs:
     - name: Test with pytest
       run: |
         uv run pytest --cov=lost_years --cov-report=xml
+
+    - name: Generate Coverage Summary
+      if: always()
+      run: |
+        echo "## Test Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Python ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        uv run pytest --cov=lost_years --cov-report=term --no-header -q | tail -20 >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
