@@ -62,81 +62,22 @@ pip install lost-years
 
 ## Using lost_years
 
-### From the command line
+### Command Line Interface
 
-* **`lost_years_ssa`**
-
-```bash
-usage: lost_years_ssa [-h] [-a AGE] [-s SEX] [-y YEAR] [-o OUTPUT] input
-
-Appends Lost Years data column(s) by age, sex and year
-
-positional arguments:
-  input                 Input file
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -a AGE, --age AGE     Column name for age in the input file (default = `age`)
-  -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
-  -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
-  -o OUTPUT, --output OUTPUT
-                        Output file with Lost Years data column(s)
-```
-
-* **`lost_years_hld`**
+The package provides three command-line tools:
 
 ```bash
-usage: lost_years_hld [-h] [-c COUNTRY] [-a AGE] [-s SEX] [-y YEAR]
-                      [-o OUTPUT] [--download-hld]
-                      input
+# US data (SSA)
+lost_years_ssa input.csv -o output.csv
 
-Appends Lost Years data column(s) by country, age, sex and year
+# International data (HLD) 
+lost_years_hld input.csv -o output.csv
 
-positional arguments:
-  input                 Input file
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -c COUNTRY, --country COUNTRY
-                        Column name for country in the input
-                        file (default = `country`)
-  -a AGE, --age AGE     Column name for age in the input file (default = `age`)
-  -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
-  -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
-  -o OUTPUT, --output OUTPUT
-                        Output file with Lost Years data column(s)
-  --download-hld        Download latest HLD from lifetable.de
+# Global data (WHO)
+lost_years_who input.csv -o output.csv
 ```
 
-* **`lost_years_who`**
-
-```bash
-usage: lost_years_who [-h] [-c COUNTRY] [-a AGE] [-s SEX] [-y YEAR]
-                    [-o OUTPUT]
-                    input
-
-Appends Lost Years data column(s) by country, age, sex and year
-
-positional arguments:
-  input                 Input file
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -c COUNTRY, --country COUNTRY
-                        Column name for country in the input
-                        file (default = `country`)
-  -a AGE, --age AGE     Column name for age in the input file (default = `age`)
-  -s SEX, --sex SEX     Column name for sex in the input file (default = `sex`)
-  -y YEAR, --year YEAR  Column name for year in the input file (default = `year`)
-  -o OUTPUT, --output OUTPUT
-                        Output file with Lost Years data column(s)
-```
-
-### Example
-
-```bash
-lost_years_hld lost_years/tests/input.csv
-```
+All commands expect a CSV file with columns for age, sex, year (and country for HLD/WHO). See the [full CLI documentation](https://gojiplus.github.io/lost_years/cli.html) for all options and examples.
 
 ### As an External Library
 
@@ -192,42 +133,6 @@ Please also look at the Jupyter notebook [example.ipynb](https://github.com/goji
 
 [12 rows x 19 columns]
 >>>
->>> help(lost_years_ssa)
-Help on method lost_years_ssa in module lost_years.ssa:
-
-lost_years_ssa(df, cols=None) method of builtins.type instance
-    Appends Life expectancycolumn from SSA data to the input DataFrame
-    based on age, sex and year in the specific cols mapping
-
-    Args:
-        df (:obj:`DataFrame`): Pandas DataFrame containing the last name
-            column.
-        cols (dict or None): Column mapping for age, sex, and year
-            in DataFrame
-            (None for default mapping: {'age': 'age', 'sex': 'sex',
-                                        'year': 'year'})
-    Returns:
-        DataFrame: Pandas DataFrame with life expectency column(s):-
-            'ssa_age', 'ssa_year', 'ssa_life_expectancy'
->>>
->>> help(lost_years_hld)
-Help on method lost_years_hld in module lost_years.hld:
-
-lost_years_hld(df, cols=None, download_latest=False) method of builtins.type instance
-    Appends Life expectancy column from HLD data to the input DataFrame
-    based on country, age, sex and year in the specific cols mapping
-
-    Args:
-        df (:obj:`DataFrame`): Pandas DataFrame containing the last name
-            column.
-        cols (dict or None): Column mapping for country, age, sex, and year
-            in DataFrame
-            (None for default mapping: {'country': 'country', 'age': 'age',
-                                        'sex': 'sex', 'year': 'year'})
-    Returns:
-        DataFrame: Pandas DataFrame with HLD data columns:-
-            'hld_country', 'hld_age', 'hld_sex', 'hld_year1', ...
->>>
 >>> lost_years_who(df)
 year country  age sex  who_age who_country  who_life_expectancy who_sex  who_year
 0  2003     BRA   80   M       80         BRA                  5.7     MLE      2003
@@ -240,24 +145,6 @@ year country  age sex  who_age who_country  who_life_expectancy who_sex  who_yea
 7  2003     MKD   46   M       45         MKD                 28.9     MLE      2003
 8  2014     MKD    6   F        5         MKD                 73.4    FMLE      2014
 9  1997     LBN   49   F       50         LBN                 28.6    FMLE      2000
->>>
->>> help(lost_years_who)
-Help on method lost_years_who in module lost_years.who:
-
-lost_years_who(df, cols=None) method of builtins.type instance
-    Appends Life expectancy column from WHO data to the input DataFrame
-    based on country, age, sex and year in the specific cols mapping
-
-    Args:
-        df (:obj:`DataFrame`): Pandas DataFrame containing the last name
-            column.
-        cols (dict or None): Column mapping for country, age, sex, and year
-            in DataFrame
-            (None for default mapping: {'country': 'country', 'age': 'age',
-                                        'sex': 'sex', 'year': 'year'})
-    Returns:
-        DataFrame: Pandas DataFrame with WHO data columns:-
-            'who_country', 'who_age', 'who_sex', 'who_year', ...
 ```
 
 ## Documentation

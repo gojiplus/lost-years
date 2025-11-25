@@ -52,6 +52,8 @@ html_theme_options = {
     "source_repository": "https://github.com/gojiplus/lost_years/",
     "source_branch": "master",
     "source_directory": "docs/source/",
+    "navigation_with_keys": True,
+    "top_of_page_button": "edit",
 }
 
 html_title = "lost_years"
@@ -87,6 +89,13 @@ autodoc_default_options = {
     "undoc-members": True,
     "exclude-members": "__weakref__",
 }
+
+# MyST settings
+myst_enable_extensions = [
+    "deflist",
+    "substitution",
+    "html_image",
+]
 
 
 # -- Options for HTMLHelp output ------------------------------------------

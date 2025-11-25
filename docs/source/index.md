@@ -1,18 +1,15 @@
 # Lost Years Documentation
 
 ```{include} ../../README.md
-:relative-images:
 ```
-
-## API Reference
 
 ```{toctree}
+:hidden:
 :maxdepth: 2
 
-api
+Home <self>
+API Reference <api>
+CLI Reference <cli>
+GitHub <https://github.com/gojiplus/lost_years>
+PyPI <https://pypi.org/project/lost-years/>
 ```
-
-## Indices and tables
-
-* {ref}`genindex`
-* {ref}`modindex`
