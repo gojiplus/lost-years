@@ -3,17 +3,13 @@
 import argparse
 import re
 import sys
+from importlib.resources import files
 
 import pandas as pd
 
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
-
 from .utils import closest, column_exists, fixup_columns
 
-WHO_DATA = str(files("lost_years") / "data" / "who" / "who.csv.gz")
+WHO_DATA = files("lost_years") / "data" / "who" / "who.csv.gz"
 WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "high_ci"]
 
 
@@ -22,7 +18,7 @@ class LostYearsWHOData:
     __who_trans: dict[str, str] = {}
 
     @classmethod
-    def lost_years_who(cls, df, cols=None):
+    def lost_years_who(cls, df: pd.DataFrame, cols: dict[str, str] | None = None) -> pd.DataFrame:
         """Appends Life expectancy column from WHO data to the input DataFrame
         based on country, age, sex and year in the specific cols mapping
 
@@ -46,36 +42,38 @@ class LostYearsWHOData:
             df_cols[col] = tcol
 
         if cls.__df is None:
-            cls.__df = pd.read_csv(WHO_DATA, compression="gzip")
+            cls.__df = pd.read_csv(str(WHO_DATA), compression="gzip")
             # Data is already clean with schema-compliant columns
             # Add age column (WHO data is life expectancy at birth)
             cls.__df["age"] = 1  # Life expectancy at birth maps to age 1 for lookup
             # Rename for consistency with existing interface
             cls.__df = cls.__df.rename(columns={"country_code": "country", "sex_code": "sex"})
 
-        # back up and create temp sex column
-        df.rename(columns={df_cols["sex"]: "__sex"}, inplace=True)
-        df["sex"] = df["__sex"].apply(
+        # Create a working copy to avoid modifying the original DataFrame
+        df_work = df.copy()
+
+        # Create normalized sex column for lookup
+        df_work["__normalized_sex"] = df_work[df_cols["sex"]].apply(
             lambda c: "MLE" if c.lower() in ["m", "male", "mle"] else "FMLE"
         )
 
         out_df = pd.DataFrame()
-        for i, r in df.iterrows():
+        for i, r in df_work.iterrows():
             sdf = cls.__df
-            for c in ["country", "age", "sex", "year"]:
+            for c in ["country", "age", "year"]:
                 if sdf[c].dtype in ["int32", "int64", "float64"]:
                     sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
                 else:
                     sdf = sdf[sdf[c].str.lower() == r[df_cols[c]].lower()]
+            # Handle sex column separately using normalized value
+            sdf = sdf[sdf["sex"].str.lower() == r["__normalized_sex"].lower()]
+
             # Select relevant columns and rename for output
             odf = sdf[["age", "country", "sex", "year", "life_expectancy"]].copy()
-            odf["index"] = i
+            odf["index"] = i  # type: ignore[call-overload]
             out_df = pd.concat([out_df, odf])
         out_df.set_index("index", drop=True, inplace=True)
         out_df.columns = ["who_" + c for c in out_df.columns]
-        # take out temp and restore back sex column
-        del df["sex"]
-        df.rename(columns={"__sex": df_cols["sex"]}, inplace=True)
         rdf = df.join(out_df)
 
         return rdf
@@ -98,7 +96,7 @@ class LostYearsWHOData:
 lost_years_who = LostYearsWHOData.lost_years_who
 
 
-def main(argv=sys.argv[1:]):
+def main(argv: list[str] = sys.argv[1:]) -> int:
     title = "Appends Lost Years data column(s) by country, age, sex and year"
     parser = argparse.ArgumentParser(description=title)
     parser.add_argument("input", default=None, help="Input file")
@@ -166,7 +164,7 @@ def main(argv=sys.argv[1:]):
     )
 
     print(f"Saving output to file: `{args.output:s}`")
-    rdf.columns = fixup_columns(rdf.columns)
+    rdf.columns = fixup_columns(rdf.columns)  # type: ignore[arg-type]
     rdf.to_csv(args.output, index=False)
 
     return 0

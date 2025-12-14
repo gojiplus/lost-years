@@ -1,16 +1,20 @@
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
 import requests
 
 
-def isstring(s):
+def isstring(s: Any) -> bool:
     return isinstance(s, str)
 
 
-def column_exists(df, col):
+def column_exists(df: pd.DataFrame, col: str | None) -> bool:
     """Check the column name exists in the DataFrame.
 
     Args:
-        df (:obj:`DataFrame`): Pandas DataFrame.
-        col (str): Column name.
+        df: Pandas DataFrame.
+        col: Column name.
 
     Returns:
         bool: True if exists, False if not exists.
@@ -23,14 +27,14 @@ def column_exists(df, col):
         return True
 
 
-def fixup_columns(cols):
+def fixup_columns(cols: list[Any]) -> list[str]:
     """Replace index location column to name with `col` prefix
 
     Args:
-        cols (list): List of original columns
+        cols: List of original columns
 
     Returns:
-        list: List of column names
+        List of column names
 
     """
     out_cols = []
@@ -42,13 +46,27 @@ def fixup_columns(cols):
     return out_cols
 
 
-def closest(lst, c):
+def closest(lst: list[float] | Any, c: float) -> float:
+    """Find closest value in list or array.
+
+    Args:
+        lst: List of floats or numpy array
+        c: Target value to find closest match for
+
+    Returns:
+        Closest value in the list/array
+    """
+    if hasattr(lst, 'tolist'):  # numpy array
+        lst = lst.tolist()
     return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - c))]
 
 
-def download_file(url, local_path=None):
+def download_file(url: str, local_path: str | Path | None = None) -> None:
     if local_path is None:
-        local_path = url.split("/")[-1]
+        local_path = Path(url.split("/")[-1])
+    elif isinstance(local_path, str):
+        local_path = Path(local_path)
+
     r = requests.get(url)
     with open(local_path, "wb") as f:
         for chunk in r.iter_content(chunk_size=512 * 1024):

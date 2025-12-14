@@ -8,18 +8,14 @@ covering 142 countries from 1751-2023.
 
 import argparse
 import sys
+from importlib.resources import files
 
 import pandas as pd
-
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
 
 from .utils import closest, column_exists, fixup_columns
 
 # HLD Configuration
-HLD_DATA = str(files("lost_years") / "data" / "hld" / "hld.csv.gz")
+HLD_DATA = files("lost_years") / "data" / "hld" / "hld.csv.gz"
 HLD_COLS = [
     "Country",
     "Year1",
@@ -35,7 +31,7 @@ class LostYearsHLDData:
     __df = None
 
     @classmethod
-    def lost_years_hld(cls, df, cols=None):
+    def lost_years_hld(cls, df: pd.DataFrame, cols: dict[str, str] | None = None) -> pd.DataFrame:
         """Appends Life expectancy column from HLD data to the input DataFrame
         based on country, age, sex and year in the specific cols mapping
 
@@ -71,7 +67,7 @@ class LostYearsHLDData:
                 # Load HLD data
                 print("Loading HLD data (this may take a moment for 2M+ records)...")
                 cls.__df = pd.read_csv(
-                    HLD_DATA, compression="gzip", usecols=HLD_COLS, low_memory=False
+                    str(HLD_DATA), compression="gzip", usecols=HLD_COLS, low_memory=False
                 )
 
                 if cls.__df.empty:
@@ -214,7 +210,7 @@ class LostYearsHLDData:
 lost_years_hld = LostYearsHLDData.lost_years_hld
 
 
-def main(argv=sys.argv[1:]):
+def main(argv: list[str] = sys.argv[1:]) -> int:
     """Main CLI function."""
     title = "Appends Lost Years data from HLD (Human Life-Table Database)"
     parser = argparse.ArgumentParser(description=title)

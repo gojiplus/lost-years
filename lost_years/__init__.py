@@ -1,15 +1,21 @@
 """Lost Years: Expected Number of Years Lost."""
 
+# Get version from package metadata (Python 3.11+ has this built-in)
+from importlib.metadata import version
+
 from .hld import lost_years_hld
 from .ssa import lost_years_ssa
+from .types import ColumnConfig, ColumnMapping, DataSourceConfig, LifeExpectancyResult
 from .who import lost_years_who
 
-# Get version from package metadata
-try:
-    from importlib.metadata import version as get_version
-except ImportError:
-    from importlib_metadata import version as get_version
+__version__ = version("lost_years")
 
-__version__ = get_version("lost_years")
-
-__all__ = ["lost_years_ssa", "lost_years_hld", "lost_years_who"]
+__all__ = [
+    "lost_years_ssa",
+    "lost_years_hld",
+    "lost_years_who",
+    "ColumnConfig",
+    "ColumnMapping",
+    "DataSourceConfig",
+    "LifeExpectancyResult",
+]

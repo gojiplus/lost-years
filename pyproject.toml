@@ -63,6 +63,8 @@ test = [
 dev = [
     "lost_years[test]",
     "ruff>=0.14.6",
+    "mypy>=1.8.0",
+    "pandas-stubs",
 ]
 docs = [
     "sphinx>=7.0",
@@ -119,7 +121,40 @@ addopts = ""
 [dependency-groups]
 dev = [
     "ruff>=0.14.6",
+    "mypy>=1.8.0",
+    "pandas-stubs",
     "pytest>=7.0",
     "pytest-cov",
     "coverage",
+    "types-requests>=2.32.4.20250913",
 ]
+
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+# Be pragmatic about pandas type complexity
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+warn_unreachable = true
+strict_equality = false
+
+[[tool.mypy.overrides]]
+module = [
+    "selenium.*",
+    "beautifulsoup4.*",
+    "bs4.*"
+]
+ignore_missing_imports = true
+
+# Additional overrides for pandas type complexity
+[[tool.mypy.overrides]]
+module = "lost_years.*"
+disable_error_code = ["call-overload", "arg-type", "assignment"]
