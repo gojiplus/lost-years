@@ -109,7 +109,7 @@ ignore = []
 "**/scrape-*.ipynb" = ["E501", "UP031", "I001", "E402", "F401", "E741"]  # Allow data notebook issues
 
 [tool.pytest.ini_options]
-testpaths = ["lost_years/tests"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

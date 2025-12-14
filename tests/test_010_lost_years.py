@@ -12,7 +12,7 @@ class TestLostYears:
     @pytest.fixture
     def sample_data(self):
         """Load sample data for testing."""
-        return pd.read_csv("lost_years/tests/input.csv")
+        return pd.read_csv("tests/input.csv")
 
     def test_lost_years_ssa(self, sample_data):
         """Test SSA lost years calculation."""
