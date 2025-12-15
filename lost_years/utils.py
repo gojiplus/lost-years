@@ -56,7 +56,7 @@ def closest(lst: list[float] | Any, c: float) -> float:
     Returns:
         Closest value in the list/array
     """
-    if hasattr(lst, 'tolist'):  # numpy array
+    if hasattr(lst, "tolist"):  # numpy array
         lst = lst.tolist()
     return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - c))]
 

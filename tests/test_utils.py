@@ -100,7 +100,7 @@ class TestUtilFunctions:
         lst = [1.0, 2.0, 3.0]
         assert closest(lst, 2.0) == 2.0
 
-    @patch('lost_years.utils.requests.get')
+    @patch("lost_years.utils.requests.get")
     def test_download_file_default_path(self, mock_get):
         """Test download_file with default path."""
         # Mock response
@@ -113,6 +113,7 @@ class TestUtilFunctions:
             try:
                 # Change to temp directory for test
                 import os
+
                 os.chdir(tmpdir)
 
                 download_file("https://example.com/file.txt")
@@ -127,7 +128,7 @@ class TestUtilFunctions:
             finally:
                 os.chdir(original_cwd)
 
-    @patch('lost_years.utils.requests.get')
+    @patch("lost_years.utils.requests.get")
     def test_download_file_custom_path(self, mock_get):
         """Test download_file with custom path."""
         # Mock response
@@ -149,7 +150,7 @@ class TestUtilFunctions:
         finally:
             Path(custom_path).unlink(missing_ok=True)
 
-    @patch('lost_years.utils.requests.get')
+    @patch("lost_years.utils.requests.get")
     def test_download_file_path_object(self, mock_get):
         """Test download_file with Path object."""
         # Mock response

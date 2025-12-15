@@ -1,6 +1,5 @@
 """Tests for lost_years package."""
 
-
 import pandas as pd
 import pytest
 
@@ -45,10 +44,7 @@ class TestErrorHandling:
     def test_missing_columns_ssa(self, capsys):
         """Test SSA function with missing required columns."""
         # Missing 'age' column
-        df_missing_age = pd.DataFrame({
-            "sex": ["M", "F"],
-            "year": [2020, 2021]
-        })
+        df_missing_age = pd.DataFrame({"sex": ["M", "F"], "year": [2020, 2021]})
         result = lost_years_ssa(df_missing_age)
         # Should return original DataFrame unchanged
         assert result.equals(df_missing_age)
@@ -60,11 +56,9 @@ class TestErrorHandling:
     def test_missing_columns_who(self, capsys):
         """Test WHO function with missing required columns."""
         # Missing 'country' column
-        df_missing_country = pd.DataFrame({
-            "age": [25, 30],
-            "sex": ["M", "F"],
-            "year": [2020, 2021]
-        })
+        df_missing_country = pd.DataFrame(
+            {"age": [25, 30], "sex": ["M", "F"], "year": [2020, 2021]}
+        )
         result = lost_years_who(df_missing_country)
         # Should return original DataFrame unchanged
         assert result.equals(df_missing_country)
@@ -89,12 +83,14 @@ class TestErrorHandling:
     def test_custom_column_mapping(self):
         """Test functions with custom column names."""
         # Create data with non-standard column names
-        df_custom = pd.DataFrame({
-            "person_age": [25, 30, 40],
-            "gender": ["M", "F", "M"],
-            "birth_year": [2000, 2005, 2010],
-            "nation": ["USA", "CAN", "MEX"]
-        })
+        df_custom = pd.DataFrame(
+            {
+                "person_age": [25, 30, 40],
+                "gender": ["M", "F", "M"],
+                "birth_year": [2000, 2005, 2010],
+                "nation": ["USA", "CAN", "MEX"],
+            }
+        )
 
         # Test SSA with custom mapping
         cols_ssa = {"age": "person_age", "sex": "gender", "year": "birth_year"}
@@ -108,11 +104,7 @@ class TestErrorHandling:
 
     def test_invalid_column_mapping(self, capsys):
         """Test with invalid column mapping."""
-        df = pd.DataFrame({
-            "age": [25],
-            "sex": ["M"],
-            "year": [2020]
-        })
+        df = pd.DataFrame({"age": [25], "sex": ["M"], "year": [2020]})
 
         # Map to non-existent column
         invalid_cols = {"age": "nonexistent_age", "sex": "sex", "year": "year"}
@@ -131,12 +123,14 @@ class TestDataValidation:
 
     def test_edge_case_ages(self):
         """Test with boundary age values."""
-        df_edge_ages = pd.DataFrame({
-            "age": [0, 1, 99, 100],
-            "sex": ["M", "F", "M", "F"],
-            "year": [2020, 2020, 2020, 2020],
-            "country": ["USA", "USA", "USA", "USA"]
-        })
+        df_edge_ages = pd.DataFrame(
+            {
+                "age": [0, 1, 99, 100],
+                "sex": ["M", "F", "M", "F"],
+                "year": [2020, 2020, 2020, 2020],
+                "country": ["USA", "USA", "USA", "USA"],
+            }
+        )
 
         # Functions should handle edge ages gracefully
         result_ssa = lost_years_ssa(df_edge_ages)
@@ -148,12 +142,14 @@ class TestDataValidation:
     def test_different_sex_formats(self):
         """Test with different sex/gender format variations."""
         # Test various sex code formats
-        df_sex_variants = pd.DataFrame({
-            "age": [25, 30, 35, 40],
-            "sex": ["Male", "Female", "1", "0"],  # Different formats
-            "year": [2020, 2020, 2020, 2020],
-            "country": ["USA", "USA", "USA", "USA"]
-        })
+        df_sex_variants = pd.DataFrame(
+            {
+                "age": [25, 30, 35, 40],
+                "sex": ["Male", "Female", "1", "0"],  # Different formats
+                "year": [2020, 2020, 2020, 2020],
+                "country": ["USA", "USA", "USA", "USA"],
+            }
+        )
 
         # Should handle different sex formats
         result_who = lost_years_who(df_sex_variants)
@@ -161,12 +157,14 @@ class TestDataValidation:
 
     def test_old_and_future_years(self):
         """Test with very old and future years."""
-        df_edge_years = pd.DataFrame({
-            "age": [25, 30, 35],
-            "sex": ["M", "F", "M"],
-            "year": [1900, 2030, 1950],  # Edge case years
-            "country": ["USA", "CAN", "MEX"]
-        })
+        df_edge_years = pd.DataFrame(
+            {
+                "age": [25, 30, 35],
+                "sex": ["M", "F", "M"],
+                "year": [1900, 2030, 1950],  # Edge case years
+                "country": ["USA", "CAN", "MEX"],
+            }
+        )
 
         # Should handle edge case years gracefully
         result_ssa = lost_years_ssa(df_edge_years)

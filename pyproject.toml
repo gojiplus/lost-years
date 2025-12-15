@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "lost_years"
-version = "0.5.0"
+version = "0.6.0"
 description = "Get Expected Number of Years Lost"
 readme = "README.md"
 license = "MIT"
