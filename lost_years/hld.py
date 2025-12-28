@@ -107,8 +107,8 @@ class LostYearsHLDData:
 
                 logger.info(f"Loaded HLD data: {len(cls.__df):,} records")
                 logger.info(f"Countries: {cls.__df['country'].nunique()}")
-                year_min = cls.__df['year'].min()
-                year_max = cls.__df['year'].max()
+                year_min = cls.__df["year"].min()
+                year_max = cls.__df["year"].max()
                 logger.info(f"Year range: {year_min:.0f}-{year_max:.0f}")
 
             except Exception as e:
