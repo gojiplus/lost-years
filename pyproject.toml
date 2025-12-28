@@ -45,7 +45,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/gojiplus/lost_years"
-Documentation = "https://gojiplus.github.io/lost_years/"
+Documentation = "https://gojiplus.github.io/lost-years/"
 Repository = "https://github.com/gojiplus/lost_years.git"
 Issues = "https://github.com/gojiplus/lost_years/issues"
 

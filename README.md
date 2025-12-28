@@ -77,7 +77,7 @@ lost_years_hld input.csv -o output.csv
 lost_years_who input.csv -o output.csv
 ```
 
-All commands expect a CSV file with columns for age, sex, year (and country for HLD/WHO). See the [full CLI documentation](https://gojiplus.github.io/lost_years/cli.html) for all options and examples.
+All commands expect a CSV file with columns for age, sex, year (and country for HLD/WHO). See the [full CLI documentation](https://gojiplus.github.io/lost-years/cli.html) for all options and examples.
 
 ### As an External Library
 
@@ -149,7 +149,7 @@ year country  age sex  who_age who_country  who_life_expectancy who_sex  who_yea
 
 ## Documentation
 
-For more information, please see [project documentation](https://gojiplus.github.io/lost_years/).
+For more information, please see [project documentation](https://gojiplus.github.io/lost-years/).
 
 ## Authors
 
