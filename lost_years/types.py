@@ -1,11 +1,10 @@
 """Type definitions and data structures for lost_years package."""
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 # Type aliases for common data types
-ColumnMapping: TypeAlias = dict[str, str]
-DataSourceColumns: TypeAlias = list[str]
+type ColumnMapping = dict[str, str]
+type DataSourceColumns = list[str]
 
 
 @dataclass(slots=True, frozen=True)

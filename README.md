@@ -4,13 +4,13 @@
 [![Documentation Status](https://github.com/gojiplus/lost_years/actions/workflows/docs.yml/badge.svg)](https://gojiplus.github.io/lost_years/)
 [![Downloads](https://static.pepy.tech/badge/lost-years)](https://pepy.tech/project/lost-years)
 
-Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/HistEst/PerLifeTables/2024/PerLifeTables2024.html), [HLD data](https://www.lifetable.de/), and [WHO life table data](https://platform.who.int/mortality).
+Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/HistEst/PerLifeTables/), [HLD data](https://www.lifetable.de/), and [WHO life table data](https://platform.who.int/mortality).
 
 **Data Currency Note**: The packaged data covers years up to 2016. For the most recent data (2023-2024), use the data update script: `python scripts/update_data.py`
 
 The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lost_years_who`:
 
-* **`lost_years_ssa`**: Joins to the final SSA dataset stored [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa.csv). The data are from [SSA actuarial data](https://www.ssa.gov/oact/STATS/table4c6.html)
+* **`lost_years_ssa`**: Joins to the final SSA dataset stored [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa/ssa.csv). The data are from [SSA actuarial data](https://www.ssa.gov/oact/STATS/)
 
     * **Inputs:**
         * The function expects 4 inputs: `age, sex, and year`. If any of the inputs are not available, it errors out.
@@ -19,7 +19,7 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
     * **What the function does**
         * While `lost_years_ssa` is technically only applicable for the US, we make it so that the function ignores the `country` argument and gives you the counterfactual of what the expected years lost would be if the person who died (or is predicted to die) was in the US. (You can of course do the same for HLD by changing the country.)
 
-* **`lost_years_hld`**: Joins to the international [life table](https://www.lifetable.de/cgi-bin/data.php) data.
+* **`lost_years_hld`**: Joins to the international [life table](https://www.lifetable.de/) data.
 
     * **Inputs:**
         * The function expects 4 inputs: `age, sex, year, and country`. If any of the inputs are not available, it errors out.
@@ -29,10 +29,10 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
         * HLD exposes more facets than age and sex. For some countries, for some periods, it also provides things like sociodemographic variables. To not lose information, we provide **multiple rows—corresponding to each sub-combination—per match**.
 
     * **Output**
-        * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/formats.pdf). For more information, check [HLD](https://www.lifetable.de/cgi-bin/hld_codes.php).
-        * To make it easier to use, we normalize the column names. The translation between HLD column names and new column names is posted [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/hld_translation.csv)
+        * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/hld/formats.pdf). For more information, check [HLD](https://www.lifetable.de/).
+        * To make it easier to use, we normalize the column names.
 
-* **`lost_years_who`**: Joins to the international [life table](https://apps.who.int/gho/data/node.main.LIFECOUNTRY?lang=en) data.
+* **`lost_years_who`**: Joins to the international [life table](https://platform.who.int/mortality) data.
 
     * **Inputs:**
         * The function expects 4 inputs: `age, sex, year, and country`. If any of the inputs are not available, it errors out.
@@ -42,15 +42,15 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
         * Joins to WHO data
 
     * **Output**
-        * To make it easier to use, we normalize the column names. The translation between WHO column names and new column names is posted [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/who_translation.csv)
+        * To make it easier to use, we normalize the column names.
 
 ## Application
 
 We illustrate the use of the package by estimating the average number of years by which people's lives are shortened due to coronavirus.
 
-**China:** Using data from [Table 1 of the paper](http://weekly.chinacdc.cn/en/article/id/e53946e2-c6c4-41e9-9a9b-fea8db1a8f51) that gives us the distribution of ages of people who died from COVID-19 in China, with conservative assumptions (assuming the gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus.ipynb) that people's lives are shortened by about 11 years on average. These estimates are conservative for one additional reason: there is likely an inverse correlation between people who die and their expected longevity. And note that given a bulk of the deaths are among older people, when people are more infirm, the quality-adjusted years lost is likely yet more modest. Given that the last life tables from China are from 1981 and given life expectancy in China has risen substantially since then (though most gains come from reductions in childhood mortality, etc.), we exploit the recent data from the US, simulating what the losses would be if people had the same aggregate life tables as Americans. Using the most recent SSA data, we find that the number to be 16. Compare this to deaths from road accidents, the modal reason for death among 5-24, and 25-44 ages in the US. Assuming everyone who dies from a traffic accident is a man, and assuming the age of death to be 25, we get ~52 years, roughly 3x as large as coronavirus.
+**China:** Using data from [Table 1 of the paper](http://weekly.chinacdc.cn/en/article/id/e53946e2-c6c4-41e9-9a9b-fea8db1a8f51) that gives us the distribution of ages of people who died from COVID-19 in China, with conservative assumptions (assuming the gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost_years/blob/master/docs/source/examples/corona_virus.ipynb) that people's lives are shortened by about 11 years on average. These estimates are conservative for one additional reason: there is likely an inverse correlation between people who die and their expected longevity. And note that given a bulk of the deaths are among older people, when people are more infirm, the quality-adjusted years lost is likely yet more modest. Given that the last life tables from China are from 1981 and given life expectancy in China has risen substantially since then (though most gains come from reductions in childhood mortality, etc.), we exploit the recent data from the US, simulating what the losses would be if people had the same aggregate life tables as Americans. Using the most recent SSA data, we find that the number to be 16. Compare this to deaths from road accidents, the modal reason for death among 5-24, and 25-44 ages in the US. Assuming everyone who dies from a traffic accident is a man, and assuming the age of death to be 25, we get ~52 years, roughly 3x as large as coronavirus.
 
-**France:** Using [COVID-19 Electronic Death Certification Data (CEPIDC)](https://www.data.gouv.fr/fr/datasets/donnees-de-certification-electronique-des-deces-associes-au-covid-19-cepidc/), like above, we estimate the average number of years lost by people dying of coronavirus. With conservative assumptions (assuming gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus_fr.ipynb) that people's lives are shortened by about 9 years on average. Surprisingly, the average number of years lost of the people dying of coronavirus [remained steady](https://github.com/gojiplus/lost_years/blob/master/examples/corona_virus_fr_daily.ipynb) at about 9 years between March and July 2020.
+**France:** Using [COVID-19 Electronic Death Certification Data (CEPIDC)](https://www.data.gouv.fr/fr/datasets/donnees-de-certification-electronique-des-deces-associes-au-covid-19-cepidc/), like above, we estimate the average number of years lost by people dying of coronavirus. With conservative assumptions (assuming gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost_years/blob/master/docs/source/examples/corona_virus_fr.ipynb) that people's lives are shortened by about 9 years on average. Surprisingly, the average number of years lost of the people dying of coronavirus [remained steady](https://github.com/gojiplus/lost_years/blob/master/docs/source/examples/corona_virus_fr_daily.ipynb) at about 9 years between March and July 2020.
 
 ## Installation
 
@@ -81,7 +81,7 @@ All commands expect a CSV file with columns for age, sex, year (and country for 
 
 ### As an External Library
 
-Please also look at the Jupyter notebook [example.ipynb](https://github.com/gojiplus/lost_years/blob/master/examples/example.ipynb).
+Please also look at the Jupyter notebook [example.ipynb](https://github.com/gojiplus/lost_years/blob/master/docs/source/examples/example.ipynb).
 
 ### As an External Library with Pandas DataFrame
 
