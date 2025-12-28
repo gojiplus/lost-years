@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import sys
 from importlib.resources import files
 
 import pandas as pd
 
 from .utils import closest, column_exists, fixup_columns
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 SSA_DATA = files("lost_years") / "data" / "ssa" / "ssa.csv"
 SSA_COLS = ["age", "male_life_expectancy", "female_life_expectancy", "year"]
@@ -33,14 +37,15 @@ class LostYearsSSAData:
         for col in ["age", "sex", "year"]:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
-                print(f"No column `{tcol!s}` in the DataFrame")
+                logger.warning(f"No column `{tcol!s}` in the DataFrame")
                 return df
             df_cols[col] = tcol
 
         if cls.__df is None:
             cls.__df = pd.read_csv(str(SSA_DATA), usecols=SSA_COLS)
 
-        out_df = pd.DataFrame()
+        out_list = []
+        index_list = []
         for i, r in df.iterrows():
             if r[df_cols["sex"]].lower() in ["m", "male"]:
                 ecol = "male_life_expectancy"
@@ -49,11 +54,18 @@ class LostYearsSSAData:
             sdf = cls.__df[["age", "year", ecol]]
             for c in ["age", "year"]:
                 sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
-            odf = sdf[["age", "year", ecol]].copy()
-            odf.columns = ["ssa_age", "ssa_year", "ssa_life_expectancy"]
-            odf["index"] = i
-            out_df = pd.concat([out_df, odf])
-        out_df.set_index("index", drop=True, inplace=True)
+            if not sdf.empty:
+                odf = sdf[["age", "year", ecol]].copy()
+                odf.columns = ["ssa_age", "ssa_year", "ssa_life_expectancy"]
+                out_list.append(odf)
+                index_list.append(i)
+
+        if out_list:
+            out_df = pd.concat(out_list, ignore_index=True)
+            out_df["original_index"] = index_list
+            out_df.set_index("original_index", drop=True, inplace=True)
+        else:
+            out_df = pd.DataFrame()
         rdf = df.join(out_df)
         return rdf
 
@@ -92,25 +104,25 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
 
     args = parser.parse_args(argv)
 
-    print(args)
+    logger.debug(args)
 
     df = pd.read_csv(args.input)
 
     if not column_exists(df, args.age):
-        print(f"Column: `{args.age!s}` not found in the input file")
+        logger.error(f"Column: `{args.age!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.sex):
-        print(f"Column: `{args.sex!s}` not found in the input file")
+        logger.error(f"Column: `{args.sex!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.year):
-        print(f"Column: `{args.year!s}` not found in the input file")
+        logger.error(f"Column: `{args.year!s}` not found in the input file")
         return -1
 
     rdf = lost_years_ssa(df, cols={"age": args.age, "sex": args.sex, "year": args.year})
 
-    print(f"Saving output to file: `{args.output:s}`")
+    logger.info(f"Saving output to file: `{args.output:s}`")
     rdf.columns = fixup_columns(rdf.columns)  # type: ignore[arg-type]
     rdf.to_csv(args.output, index=False)
 

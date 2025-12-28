@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "lost_years"
-version = "0.6.0"
+version = "0.7.0"
 description = "Get Expected Number of Years Lost"
 readme = "README.md"
 license = "MIT"
@@ -16,7 +16,7 @@ maintainers = [
     { name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com" },
     { name = "Gaurav Sood", email = "gsood07@gmail.com" },
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.14.2",
     "pandas",
@@ -35,9 +35,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
@@ -63,14 +63,19 @@ test = [
 dev = [
     "lost_years[test]",
     "ruff>=0.14.6",
-    "mypy>=1.8.0",
     "pandas-stubs",
+    "pydoclint>=0.5.0",
+    "pyright[nodejs]>=1.1.0",
 ]
 docs = [
     "sphinx>=7.0",
     "furo", 
     "sphinx-autodoc-typehints",
     "myst-parser",
+    "nbsphinx>=0.9.0",
+    "ipykernel>=6.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
 ]
 
 
@@ -121,40 +126,47 @@ addopts = ""
 [dependency-groups]
 dev = [
     "ruff>=0.14.6",
-    "mypy>=1.8.0",
     "pandas-stubs",
     "pytest>=7.0",
     "pytest-cov",
     "coverage",
     "types-requests>=2.32.4.20250913",
+    "pydoclint>=0.5.0",
+    "pyright[nodejs]>=1.1.0",
+    "preen>=0.1.0",
+]
+docs = [
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
 ]
 
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = false
-warn_unused_configs = true
-# Be pragmatic about pandas type complexity
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-disallow_untyped_decorators = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = false
-warn_no_return = true
-warn_unreachable = true
-strict_equality = false
+[tool.pydoclint]
+style = "google"
+exclude = '\.git|\.tox|tests|lost_years/data/.*update.*\.py|lost_years/data/.*scrape.*'
+check-return-types = false
+check-yield-types = false
+arg-type-hints-in-docstring = false
+skip-checking-short-docstrings = true
+skip-checking-raises = false
 
-[[tool.mypy.overrides]]
-module = [
-    "selenium.*",
-    "beautifulsoup4.*",
-    "bs4.*"
+[tool.pyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.11"
+pythonPlatform = "All"
+include = ["lost_years"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "lost_years/data/**/update_*.py",
+    "lost_years/data/**/scrape-*.ipynb",
+    "examples/**/*.ipynb"
 ]
-ignore_missing_imports = true
-
-# Additional overrides for pandas type complexity
-[[tool.mypy.overrides]]
-module = "lost_years.*"
-disable_error_code = ["call-overload", "arg-type", "assignment"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportMissingModuleSource = false
+reportUnusedImport = true
+reportUnusedClass = true
+reportUnusedFunction = true
+reportUnusedVariable = true
+reportDuplicateImport = true

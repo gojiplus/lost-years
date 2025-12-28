@@ -36,7 +36,7 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
 
     * **Inputs:**
         * The function expects 4 inputs: `age, sex, year, and country`. If any of the inputs are not available, it errors out.
-        * **Closest Year and Age Matching** By default, we match to the closest year; not all countries provide expected years left for all years or all ages. The year we match to is `hld_year1`. Same for age. If the age provided is not available, we match to the closest age and store the matched age in the `who_age` column.
+        * **Closest Year and Age Matching** By default, we match to the closest year; not all countries provide expected years left for all years or all ages. The year we match to is `who_year`. Same for age. If the age provided is not available, we match to the closest age and store the matched age in the `who_age` column.
 
     * **What the function does**
         * Joins to WHO data

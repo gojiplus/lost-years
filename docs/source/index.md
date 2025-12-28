@@ -8,6 +8,7 @@
 :maxdepth: 2
 
 Home <self>
+Examples <examples>
 API Reference <api>
 CLI Reference <cli>
 GitHub <https://github.com/gojiplus/lost_years>

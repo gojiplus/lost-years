@@ -1,8 +1,16 @@
+import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import requests
+
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 
 def isstring(s: Any) -> bool:
@@ -21,7 +29,7 @@ def column_exists(df: pd.DataFrame, col: str | None) -> bool:
 
     """
     if col and (col not in df.columns):
-        print(f"The specify column `{col!s}` not found in the input file")
+        logger.warning(f"The specify column `{col!s}` not found in the input file")
         return False
     else:
         return True
@@ -46,7 +54,7 @@ def fixup_columns(cols: list[Any]) -> list[str]:
     return out_cols
 
 
-def closest(lst: list[float] | Any, c: float) -> float:
+def closest(lst: "list[float] | npt.NDArray[np.floating[Any]]", c: float) -> float:
     """Find closest value in list or array.
 
     Args:
@@ -56,19 +64,26 @@ def closest(lst: list[float] | Any, c: float) -> float:
     Returns:
         Closest value in the list/array
     """
+    # Convert numpy array to list if needed
+    working_list: list[float]
     if hasattr(lst, "tolist"):  # numpy array
-        lst = lst.tolist()
-    return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - c))]
+        working_list = lst.tolist()  # type: ignore[attr-defined]
+    else:
+        working_list = lst  # type: ignore[assignment]
+    return working_list[min(range(len(working_list)), key=lambda i: abs(working_list[i] - c))]
 
 
 def download_file(url: str, local_path: str | Path | None = None) -> None:
-    if local_path is None:
-        local_path = Path(url.split("/")[-1])
-    elif isinstance(local_path, str):
-        local_path = Path(local_path)
+    match local_path:
+        case None:
+            local_path = Path(url.split("/")[-1])
+        case str():
+            local_path = Path(local_path)
+        case _:
+            pass  # Already a Path object
 
     r = requests.get(url)
-    with open(local_path, "wb") as f:
+    with local_path.open("wb") as f:
         for chunk in r.iter_content(chunk_size=512 * 1024):
             if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)

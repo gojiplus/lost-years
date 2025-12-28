@@ -7,12 +7,17 @@ covering 142 countries from 1751-2023.
 """
 
 import argparse
+import logging
 import sys
 from importlib.resources import files
+from pathlib import Path
 
 import pandas as pd
 
 from .utils import closest, column_exists, fixup_columns
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # HLD Configuration
 HLD_DATA = files("lost_years") / "data" / "hld" / "hld.csv.gz"
@@ -33,45 +38,44 @@ class LostYearsHLDData:
     @classmethod
     def lost_years_hld(cls, df: pd.DataFrame, cols: dict[str, str] | None = None) -> pd.DataFrame:
         """Appends Life expectancy column from HLD data to the input DataFrame
-        based on country, age, sex and year in the specific cols mapping
+        based on country, age, sex and year in the specific cols mapping.
 
         Args:
-            df (:obj:`DataFrame`): Pandas DataFrame containing the input data
-            cols (dict or None): Column mapping for country, age, sex, and year
-                in DataFrame
-                (None for default mapping: {'country': 'country', 'age': 'age',
-                                            'sex': 'sex', 'year': 'year'})
+            df: Pandas DataFrame containing the input data.
+            cols: Column mapping for country, age, sex, and year in DataFrame.
+                None for default mapping: {'country': 'country', 'age': 'age',
+                'sex': 'sex', 'year': 'year'}.
+
         Returns:
-            DataFrame: Pandas DataFrame with HLD data columns:-
-                'hld_country', 'hld_age', 'hld_sex', 'hld_year', 'hld_life_expectancy'
+            Pandas DataFrame with HLD data columns:
+                'hld_country', 'hld_age', 'hld_sex', 'hld_year', 'hld_life_expectancy'.
         """
         df_cols = {}
         for col in ["country", "age", "sex", "year"]:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
-                print(f"No column `{tcol!s}` in the DataFrame")
+                logger.warning(f"No column `{tcol!s}` in the DataFrame")
                 return df
             df_cols[col] = tcol
 
         if cls.__df is None:
             # Check if HLD data file exists
-            import os
-
-            if not os.path.exists(HLD_DATA):
-                print(f"HLD data file not found: {HLD_DATA}")
-                print("Run: python lost_years/data/hld/update_hld_data.py")
-                print("Or manually download from: https://www.lifetable.de/")
+            hld_path = Path(str(HLD_DATA))
+            if not hld_path.exists():
+                logger.error(f"HLD data file not found: {HLD_DATA}")
+                logger.info("Run: python lost_years/data/hld/update_hld_data.py")
+                logger.info("Or manually download from: https://www.lifetable.de/")
                 return df
 
             try:
                 # Load HLD data
-                print("Loading HLD data (this may take a moment for 2M+ records)...")
+                logger.info("Loading HLD data (this may take a moment for 2M+ records)...")
                 cls.__df = pd.read_csv(
                     str(HLD_DATA), compression="gzip", usecols=HLD_COLS, low_memory=False
                 )
 
                 if cls.__df.empty:
-                    print("HLD data file is empty")
+                    logger.error("HLD data file is empty")
                     return df
 
                 # Clean and standardize the data
@@ -101,14 +105,16 @@ class LostYearsHLDData:
                 # Remove invalid records
                 cls.__df = cls.__df.dropna()
 
-                print(f"Loaded HLD data: {len(cls.__df):,} records")
-                print(f"Countries: {cls.__df['country'].nunique()}")
-                print(f"Year range: {cls.__df['year'].min():.0f}-{cls.__df['year'].max():.0f}")
+                logger.info(f"Loaded HLD data: {len(cls.__df):,} records")
+                logger.info(f"Countries: {cls.__df['country'].nunique()}")
+                year_min = cls.__df['year'].min()
+                year_max = cls.__df['year'].max()
+                logger.info(f"Year range: {year_min:.0f}-{year_max:.0f}")
 
             except Exception as e:
-                print(f"Error loading HLD data: {e}")
-                print("The HLD data file may be corrupted or missing.")
-                print("Run: python lost_years/data/hld/update_hld_data.py")
+                logger.error(f"Error loading HLD data: {e}")
+                logger.error("The HLD data file may be corrupted or missing.")
+                logger.info("Run: python lost_years/data/hld/update_hld_data.py")
                 return df
 
         # Process input data
@@ -247,7 +253,7 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
     )
 
     args = parser.parse_args(argv)
-    print(args)
+    logger.debug(args)
 
     df = pd.read_csv(args.input)
 
@@ -259,7 +265,7 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         ("year", args.year),
     ]:
         if not column_exists(df, col_arg):
-            print(f"Column: `{col_arg!s}` not found in the input file")
+            logger.error(f"Column: `{col_arg!s}` not found in the input file")
             return -1
 
     # Apply HLD lookup
@@ -274,8 +280,8 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
     )
 
     # Save output
-    print(f"Saving output to file: `{args.output:s}`")
-    result_df.columns = fixup_columns(result_df.columns)
+    logger.info(f"Saving output to file: `{args.output:s}`")
+    result_df.columns = fixup_columns(result_df.columns.tolist())
     result_df.to_csv(args.output, index=False)
 
     return 0

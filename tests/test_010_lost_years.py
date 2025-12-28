@@ -1,5 +1,7 @@
 """Tests for lost_years package."""
 
+import logging
+
 import pandas as pd
 import pytest
 
@@ -41,31 +43,31 @@ class TestLostYears:
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_missing_columns_ssa(self, capsys):
+    def test_missing_columns_ssa(self, caplog):
         """Test SSA function with missing required columns."""
         # Missing 'age' column
         df_missing_age = pd.DataFrame({"sex": ["M", "F"], "year": [2020, 2021]})
-        result = lost_years_ssa(df_missing_age)
+        with caplog.at_level(logging.WARNING):
+            result = lost_years_ssa(df_missing_age)
         # Should return original DataFrame unchanged
         assert result.equals(df_missing_age)
 
-        # Check error message was printed
-        captured = capsys.readouterr()
-        assert "No column `age` in the DataFrame" in captured.out
+        # Check error message was logged
+        assert "No column `age` in the DataFrame" in caplog.text
 
-    def test_missing_columns_who(self, capsys):
+    def test_missing_columns_who(self, caplog):
         """Test WHO function with missing required columns."""
         # Missing 'country' column
         df_missing_country = pd.DataFrame(
             {"age": [25, 30], "sex": ["M", "F"], "year": [2020, 2021]}
         )
-        result = lost_years_who(df_missing_country)
+        with caplog.at_level(logging.WARNING):
+            result = lost_years_who(df_missing_country)
         # Should return original DataFrame unchanged
         assert result.equals(df_missing_country)
 
-        # Check error message was printed
-        captured = capsys.readouterr()
-        assert "No column `country` in the DataFrame" in captured.out
+        # Check error message was logged
+        assert "No column `country` in the DataFrame" in caplog.text
 
     def test_empty_dataframe(self):
         """Test functions with empty DataFrame."""
@@ -102,20 +104,20 @@ class TestErrorHandling:
         result_who = lost_years_who(df_custom, cols=cols_who)
         assert isinstance(result_who, pd.DataFrame)
 
-    def test_invalid_column_mapping(self, capsys):
+    def test_invalid_column_mapping(self, caplog):
         """Test with invalid column mapping."""
         df = pd.DataFrame({"age": [25], "sex": ["M"], "year": [2020]})
 
         # Map to non-existent column
         invalid_cols = {"age": "nonexistent_age", "sex": "sex", "year": "year"}
-        result = lost_years_ssa(df, cols=invalid_cols)
+        with caplog.at_level(logging.WARNING):
+            result = lost_years_ssa(df, cols=invalid_cols)
 
         # Should return original DataFrame
         assert result.equals(df)
 
-        # Should print error message
-        captured = capsys.readouterr()
-        assert "No column `nonexistent_age` in the DataFrame" in captured.out
+        # Should log error message
+        assert "No column `nonexistent_age` in the DataFrame" in caplog.text
 
 
 class TestDataValidation:

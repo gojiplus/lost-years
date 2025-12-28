@@ -27,6 +27,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "myst_parser",
+    "nbsphinx",
 ]
 
 templates_path = ["_templates"]
@@ -96,6 +97,19 @@ myst_enable_extensions = [
     "substitution",
     "html_image",
 ]
+
+# nbsphinx configuration
+nbsphinx_execute = "always"
+nbsphinx_allow_errors = True
+nbsphinx_kernel_name = "python3"
+nbsphinx_timeout = 600
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'svg', 'pdf'}",
+    "--InlineBackend.rc={'figure.dpi': 96}",
+]
+
+# Exclude patterns for notebooks
+exclude_patterns.extend(["examples/.ipynb_checkpoints"])
 
 
 # -- Options for HTMLHelp output ------------------------------------------

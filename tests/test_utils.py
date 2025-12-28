@@ -1,5 +1,6 @@
 """Tests for utils module."""
 
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -37,16 +38,16 @@ class TestUtilFunctions:
         captured = capsys.readouterr()
         assert captured.out == ""
 
-    def test_column_exists_invalid_columns(self, capsys):
+    def test_column_exists_invalid_columns(self, caplog):
         """Test column_exists with invalid columns."""
         df = pd.DataFrame({"age": [25, 30], "name": ["Alice", "Bob"]})
 
         # Test non-existing column
-        assert column_exists(df, "invalid_col") is False
+        with caplog.at_level(logging.WARNING):
+            assert column_exists(df, "invalid_col") is False
 
-        # Check error message is printed
-        captured = capsys.readouterr()
-        assert "The specify column `invalid_col` not found" in captured.out
+        # Check error message is logged
+        assert "The specify column `invalid_col` not found" in caplog.text
 
     def test_column_exists_none_column(self):
         """Test column_exists with None column."""

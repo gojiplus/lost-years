@@ -241,14 +241,15 @@ def validate_data_file(source: str, file_path: str) -> dict[str, Any]:
             df = pd.read_csv(file_path)
 
         # Validate against appropriate schema
-        if source.lower() == "ssa":
-            return SSASchema.validate(df)
-        elif source.lower() == "who":
-            return WHOSchema.validate(df)
-        elif source.lower() == "hld":
-            return HLDSchema.validate(df)
-        else:
-            return {"valid": False, "issues": [f"Unknown source: {source}"]}
+        match source.lower():
+            case "ssa":
+                return SSASchema.validate(df)
+            case "who":
+                return WHOSchema.validate(df)
+            case "hld":
+                return HLDSchema.validate(df)
+            case _:
+                return {"valid": False, "issues": [f"Unknown source: {source}"]}
 
     except Exception as e:
         return {"valid": False, "issues": [f"Error reading file: {e}"]}

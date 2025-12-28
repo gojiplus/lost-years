@@ -133,12 +133,13 @@ class MasterDataUpdater:
 
         logger.info(f"Overall: {success_count}/{total_count} data sources updated successfully")
 
-        if success_count == total_count:
-            logger.info("🎉 All data sources updated successfully!")
-        elif success_count > 0:
-            logger.info("⚠️  Some data sources updated successfully")
-        else:
-            logger.info("💥 No data sources updated successfully")
+        match (success_count, total_count):
+            case (s, t) if s == t:
+                logger.info("🎉 All data sources updated successfully!")
+            case (s, _) if s > 0:
+                logger.info("⚠️  Some data sources updated successfully")
+            case _:
+                logger.info("💥 No data sources updated successfully")
 
         return success_count, total_count
 

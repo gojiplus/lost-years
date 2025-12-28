@@ -189,13 +189,22 @@ def main():
             logger.info(f"{source:>3}: ❌ No data file")
 
     logger.info("\nFinal data structure:")
-    for root, _dirs, files in DATA_DIR.walk():
-        level = root.relative_to(DATA_DIR).parts.__len__()
+
+    def log_directory_tree(path: Path, level: int = 0):
+        """Recursively log directory tree structure."""
         indent = " " * 2 * level
-        logger.info(f"{indent}{root.name}/")
+        logger.info(f"{indent}{path.name}/")
         subindent = " " * 2 * (level + 1)
-        for file in files:
-            logger.info(f"{subindent}{file}")
+
+        # Sort items: directories first, then files
+        items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
+        for item in items:
+            if item.is_dir():
+                log_directory_tree(item, level + 1)
+            else:
+                logger.info(f"{subindent}{item.name}")
+
+    log_directory_tree(DATA_DIR)
 
 
 if __name__ == "__main__":

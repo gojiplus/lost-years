@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import re
 import sys
 from importlib.resources import files
@@ -8,6 +9,9 @@ from importlib.resources import files
 import pandas as pd
 
 from .utils import closest, column_exists, fixup_columns
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 WHO_DATA = files("lost_years") / "data" / "who" / "who.csv.gz"
 WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "high_ci"]
@@ -20,24 +24,23 @@ class LostYearsWHOData:
     @classmethod
     def lost_years_who(cls, df: pd.DataFrame, cols: dict[str, str] | None = None) -> pd.DataFrame:
         """Appends Life expectancy column from WHO data to the input DataFrame
-        based on country, age, sex and year in the specific cols mapping
+        based on country, age, sex and year in the specific cols mapping.
 
         Args:
-            df (:obj:`DataFrame`): Pandas DataFrame containing the last name
-                column.
-            cols (dict or None): Column mapping for country, age, sex, and year
-                in DataFrame
-                (None for default mapping: {'country': 'country', 'age': 'age',
-                                            'sex': 'sex', 'year': 'year'})
+            df: Pandas DataFrame containing the input data.
+            cols: Column mapping for country, age, sex, and year in DataFrame.
+                None for default mapping: {'country': 'country', 'age': 'age',
+                'sex': 'sex', 'year': 'year'}.
+
         Returns:
-            DataFrame: Pandas DataFrame with WHO data columns:-
+            Pandas DataFrame with WHO data columns:
                 'who_country', 'who_age', 'who_sex', 'who_year', ...
         """
         df_cols = {}
         for col in ["country", "age", "sex", "year"]:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
-                print(f"No column `{tcol!s}` in the DataFrame")
+                logger.warning(f"No column `{tcol!s}` in the DataFrame")
                 return df
             df_cols[col] = tcol
 
@@ -133,24 +136,24 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
 
     args = parser.parse_args(argv)
 
-    print(args)
+    logger.debug(args)
 
     df = pd.read_csv(args.input)
 
     if not column_exists(df, args.country):
-        print(f"Column: `{args.country!s}` not found in the input file")
+        logger.error(f"Column: `{args.country!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.age):
-        print(f"Column: `{args.age!s}` not found in the input file")
+        logger.error(f"Column: `{args.age!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.sex):
-        print(f"Column: `{args.sex!s}` not found in the input file")
+        logger.error(f"Column: `{args.sex!s}` not found in the input file")
         return -1
 
     if not column_exists(df, args.year):
-        print(f"Column: `{args.year!s}` not found in the input file")
+        logger.error(f"Column: `{args.year!s}` not found in the input file")
         return -1
 
     rdf = lost_years_who(
@@ -163,7 +166,7 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         },
     )
 
-    print(f"Saving output to file: `{args.output:s}`")
+    logger.info(f"Saving output to file: `{args.output:s}`")
     rdf.columns = fixup_columns(rdf.columns)  # type: ignore[arg-type]
     rdf.to_csv(args.output, index=False)
 

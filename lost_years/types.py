@@ -51,11 +51,11 @@ class LifeExpectancyResult:
     """Result from life expectancy calculation.
 
     Attributes:
-        source_age: Age from source data
-        source_year: Year from source data
-        source_country: Country from source data (if applicable)
-        life_expectancy: Calculated life expectancy
-        data_source: Which data source was used
+        source_age: Age from source data.
+        source_year: Year from source data.
+        life_expectancy: Calculated life expectancy.
+        data_source: Which data source was used.
+        source_country: Country from source data (if applicable).
     """
 
     source_age: int
