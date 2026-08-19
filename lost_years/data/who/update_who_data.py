@@ -4,12 +4,15 @@
 Attempts to fetch updated WHO life expectancy data from available sources.
 """
 
+import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Setup logging
 logging.basicConfig(
@@ -24,12 +27,58 @@ DATA_DIR = Path(__file__).parent  # Script is now in the data/who directory
 class WHODataUpdater:
     """WHO data updater using various available methods."""
 
-    def __init__(self):
-        """Open an HTTP session identifying itself to the WHO GHO API."""
+    def __init__(self, debug: bool = False):
+        """Open an HTTP session identifying itself to the WHO GHO API.
+
+        Args:
+            debug: Save intermediate payloads and raise the log level.
+        """
+        self.debug = debug
         self.session = requests.Session()
-        self.session.headers.update(
-            {"User-Agent": "lost_years/0.4.0 (https://github.com/gojiplus/lost_years)"}
+
+        # Enhanced session configuration with retries
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=2,
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+        # Better headers
+        self.session.headers.update(
+            {
+                "User-Agent": "lost_years/0.5.0 (https://github.com/gojiplus/lost_years)",
+                "Accept": "application/json,application/csv,text/csv,*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+            }
+        )
+
+        # Load ISO country code mapping from file
+        mapping_file = DATA_DIR / "iso_country_mapping.json"
+        try:
+            with mapping_file.open() as handle:
+                self.country_mapping = json.load(handle)
+            logger.info("Loaded %d country mappings", len(self.country_mapping))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not load country mapping: %s", exc)
+            self.country_mapping = {}
+
+        logger.info("WHO Data Updater initialized with enhanced error handling")
+        if debug:
+            logger.setLevel(logging.DEBUG)
+            logger.info("Debug mode enabled - will save intermediate data")
+
+    def _map_country_names(self, country_codes):
+        """Map ISO country codes to country names."""
+        if isinstance(country_codes, str):
+            return self.country_mapping.get(country_codes, country_codes)
+        if hasattr(country_codes, "__iter__"):
+            return [self.country_mapping.get(code, code) for code in country_codes]
+        return country_codes
 
     def try_working_gho_api(self):
         """Try working GHO API endpoints."""
@@ -360,8 +409,8 @@ class WHODataUpdater:
             clean_df = pd.DataFrame(
                 {
                     "country_code": df.get("COUNTRY (CODE)", df.get("SpatialDim", "")),
-                    "country_name": df.get(
-                        "COUNTRY (DISPLAY)", df.get("ParentLocation", "")
+                    "country_name": self._map_country_names(
+                        df.get("COUNTRY (CODE)", df.get("SpatialDim", ""))
                     ),
                     "year": df.get("YEAR (CODE)", df.get("TimeDim", 0)),
                     "sex_code": df.get("SEX (CODE)", df.get("Dim1", "")),
