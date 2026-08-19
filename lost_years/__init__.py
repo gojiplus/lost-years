@@ -11,11 +11,11 @@ from .who import lost_years_who
 __version__ = version("lost_years")
 
 __all__ = [
-    "lost_years_ssa",
-    "lost_years_hld",
-    "lost_years_who",
     "ColumnConfig",
     "ColumnMapping",
     "DataSourceConfig",
     "LifeExpectancyResult",
+    "lost_years_hld",
+    "lost_years_ssa",
+    "lost_years_who",
 ]

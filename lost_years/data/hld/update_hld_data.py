@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""
-HLD Data Update Script - Manual Download Process
-Human Life-Table Database from lifetable.de
+"""HLD data update script for the manual download process.
+
+Human Life-Table Database from lifetable.de.
 
 Since automated download is challenging due to site protection,
 this script provides instructions for manual download and processing.
@@ -9,13 +9,15 @@ this script provides instructions for manual download and processing.
 
 import logging
 import zipfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Base directory
@@ -26,6 +28,7 @@ class HLDDataUpdater:
     """HLD data updater with manual download instructions."""
 
     def __init__(self):
+        """Record the lifetable.de URLs the download instructions point at."""
         self.hld_url = "https://www.lifetable.de/"
         self.download_url = "https://www.lifetable.de/File/GetDocument/data/hld.zip"
 
@@ -42,20 +45,20 @@ class HLDDataUpdater:
 
         for file_path in potential_files:
             if file_path.exists():
-                logger.info(f"Found: {file_path}")
+                logger.info("Found: %s", file_path)
                 return file_path
 
         return None
 
     def process_hld_zip(self, zip_path):
         """Process downloaded HLD zip file."""
-        logger.info(f"Processing HLD zip file: {zip_path}")
+        logger.info("Processing HLD zip file: %s", zip_path)
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 # Extract the main data file (usually 'res')
                 files = zf.namelist()
-                logger.info(f"Zip contains: {files}")
+                logger.info("Zip contains: %s", files)
 
                 # Find the main data file
                 data_file = None
@@ -65,20 +68,19 @@ class HLDDataUpdater:
                         break
 
                 if data_file:
-                    logger.info(f"Extracting: {data_file}")
+                    logger.info("Extracting: %s", data_file)
                     zf.extract(data_file, DATA_DIR)
                     return DATA_DIR / data_file
-                else:
-                    logger.error("No recognizable data file found in zip")
-                    return None
+                logger.error("No recognizable data file found in zip")
+                return None
 
         except Exception as e:
-            logger.error(f"Error processing zip file: {e}")
+            logger.error("Error processing zip file: %s", e)
             return None
 
     def clean_and_save_hld_data(self, csv_path):
         """Clean and save HLD data in standardized format."""
-        logger.info(f"Cleaning HLD data from: {csv_path}")
+        logger.info("Cleaning HLD data from: %s", csv_path)
 
         try:
             # Read in chunks to handle large file and potential parsing errors
@@ -93,36 +95,37 @@ class HLDDataUpdater:
                 chunks.append(chunk)
                 total_rows += len(chunk)
                 if len(chunks) % 20 == 0:
-                    logger.info(f"Processed {total_rows:,} rows...")
+                    logger.info("Processed %s rows...", f"{total_rows:,}")
 
             # Combine all chunks
             logger.info("Combining data chunks...")
             df = pd.concat(chunks, ignore_index=True)
 
-            logger.info(f"Loaded {len(df):,} HLD records")
-            logger.info(f"Countries: {df['Country'].nunique()}")
-            logger.info(f"Years: {df['Year1'].min()}-{df['Year1'].max()}")
+            logger.info("Loaded %s HLD records", f"{len(df):,}")
+            logger.info("Countries: %s", df["Country"].nunique())
+            logger.info("Years: %s-%s", df["Year1"].min(), df["Year1"].max())
 
             # Save as compressed CSV
             output_file = DATA_DIR / "hld.csv.gz"
-            backup_file = DATA_DIR / f"hld-backup-{datetime.now().strftime('%Y%m%d')}.csv.gz"
+            stamp = datetime.now(tz=UTC).strftime("%Y%m%d")
+            backup_file = DATA_DIR / f"hld-backup-{stamp}.csv.gz"
 
             # Backup existing file
             if output_file.exists():
                 import shutil
 
                 shutil.copy2(output_file, backup_file)
-                logger.info(f"Backed up original data to {backup_file}")
+                logger.info("Backed up original data to %s", backup_file)
 
             # Save new clean data
             df.to_csv(output_file, compression="gzip", index=False)
-            logger.info(f"Saved clean HLD data: {output_file}")
-            logger.info(f"File size: {output_file.stat().st_size / 1024**2:.1f} MB")
+            logger.info("Saved clean HLD data: %s", output_file)
+            logger.info("File size: %.1f MB", output_file.stat().st_size / 1024**2)
 
             return True
 
         except Exception as e:
-            logger.error(f"Error processing HLD data: {e}")
+            logger.error("Error processing HLD data: %s", e)
             return False
 
     def show_manual_download_instructions(self):
@@ -163,7 +166,7 @@ class HLDDataUpdater:
 
             elif existing_file.suffix == ".gz":
                 # Already processed
-                logger.info(f"Clean HLD data already exists: {existing_file}")
+                logger.info("Clean HLD data already exists: %s", existing_file)
                 return True
 
         else:
@@ -172,12 +175,19 @@ class HLDDataUpdater:
             self.show_manual_download_instructions()
             return False
 
+        # A zip that failed to extract, or a file with an unrecognised suffix.
+        # These fell through as an implicit None, which callers already read as
+        # failure; saying so explicitly keeps the return type honest.
+        return False
+
 
 def main():
     """Main function."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Update HLD life table data (manual download)")
+    parser = argparse.ArgumentParser(
+        description="Update HLD life table data (manual download)"
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
