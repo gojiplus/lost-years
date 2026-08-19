@@ -25,10 +25,8 @@ logger = logging.getLogger(__name__)
 WHO_DATA = files("lost_years") / "data" / "who" / "who.csv.gz"
 WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "high_ci"]
 
-# The packaged table covers 2000-2021. Life expectancy at birth normally moves
-# 0.1-0.3 years per calendar year, so a five-year reach costs well under a
-# year; past it the table stops being an answer to the question that was asked.
-WHO_YEAR_TOLERANCE = 5.0
+# Same policy as SSA: report the matched year rather than refuse. See ssa.py.
+WHO_YEAR_TOLERANCE = None
 
 WHO_OUTPUT_COLS = [
     "who_country",

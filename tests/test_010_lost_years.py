@@ -132,11 +132,11 @@ class TestErrorHandling:
 
         cols_ssa = {"age": "person_age", "sex": "gender", "year": "birth_year"}
         result_ssa = lost_years_ssa(df_custom, cols=cols_ssa)
-        assert list(result_ssa["ssa_match_status"]) == ["ok"] * 3
+        assert all(s.startswith("ok") for s in result_ssa["ssa_match_status"])
 
         cols_who = {"sex": "gender", "year": "birth_year", "country": "nation"}
         result_who = lost_years_who(df_custom, cols=cols_who)
-        assert list(result_who["who_match_status"]) == ["ok"] * 3
+        assert all(s.startswith("ok") for s in result_who["who_match_status"])
 
     def test_invalid_column_mapping(self, caplog):
         """Test with invalid column mapping."""
@@ -168,7 +168,7 @@ class TestDataValidation:
             }
         )
         result_ssa = lost_years_ssa(df_edge_ages)
-        assert list(result_ssa["ssa_match_status"])[:3] == ["ok"] * 3
+        assert all(s.startswith("ok") for s in list(result_ssa["ssa_match_status"])[:3])
         assert pd.isna(result_ssa["ssa_life_expectancy"].iloc[3])
 
     def test_missing_age_does_not_return_life_expectancy_at_birth(self):
@@ -194,7 +194,7 @@ class TestDataValidation:
         assert list(result_who["who_sex"]) == ["MLE", "FMLE", "MLE", "MLE"]
 
     def test_old_and_future_years(self):
-        """Years far from the packaged tables return nothing, and say why."""
+        """A distant year is answered from the table it came from, and says so."""
         df_edge_years = pd.DataFrame(
             {
                 "age": [25, 30, 35],
@@ -205,21 +205,32 @@ class TestDataValidation:
         )
 
         result_ssa = lost_years_ssa(df_edge_years)
-        assert result_ssa["ssa_life_expectancy"].isna().tolist() == [True, True, False]
-        assert "more than 5.0 from 1900" in result_ssa["ssa_match_status"].iloc[0]
-        assert "more than 5.0 from 2500" in result_ssa["ssa_match_status"].iloc[1]
-        # 2019 is inside the tolerance, so the 2022 table answers it.
-        assert result_ssa["ssa_year"].iloc[2] == 2022
+        # The package documents closest-year matching and lost_years_ssa is a
+        # counterfactual, so a distant year is still answered -- but the row
+        # must name the table year it came from and how far that is.
+        assert result_ssa["ssa_life_expectancy"].notna().all()
+        assert (result_ssa["ssa_year"] == 2022).all()
+        assert (
+            "2022 for requested 1900 (122 years away)"
+            in (result_ssa["ssa_match_status"].iloc[0])
+        )
+        assert (
+            "2022 for requested 2500 (478 years away)"
+            in (result_ssa["ssa_match_status"].iloc[1])
+        )
+        assert result_ssa["ssa_match_status"].iloc[2].startswith("ok")
 
         result_who = lost_years_who(df_edge_years)
         expectancies = result_who["who_life_expectancy_at_birth"]
-        assert pd.isna(expectancies.iloc[0])
-        assert pd.isna(expectancies.iloc[1])
+        # Same policy as SSA: answer from the nearest table year, and say which.
+        assert expectancies.notna().all()
+        # The table spans 2000-2021, so each end clamps to its nearest year.
+        assert result_who["who_year"].tolist()[:2] == [2000, 2021]
         assert expectancies.iloc[2] == pytest.approx(76.53, abs=0.005)
 
-    def test_tolerance_can_be_widened_explicitly(self):
-        """The refusal is a default, not a wall: widening it is a visible choice."""
+    def test_tolerance_can_be_tightened_explicitly(self):
+        """Reporting is the default; a caller who wants a hard limit sets one."""
         df = pd.DataFrame({"age": [30], "sex": ["M"], "year": [1900]})
-        row = lost_years_ssa(df, year_tolerance=None).iloc[0]
-        assert row["ssa_year"] == 2022
-        assert row["ssa_life_expectancy"] == SSA_2022[("M", 30)]
+        row = lost_years_ssa(df, year_tolerance=5.0).iloc[0]
+        assert pd.isna(row["ssa_life_expectancy"])
+        assert "more than 5.0 from 1900" in row["ssa_match_status"]

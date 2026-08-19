@@ -19,14 +19,50 @@ SSA_COLS = ["age", "male_life_expectancy", "female_life_expectancy", "year"]
 # covers matches exactly; the slack exists only to round a non-integer age.
 SSA_AGE_TOLERANCE = 1.0
 
-# SSA publishes one period life table per year and the package ships a single
-# one (2022). US life expectancy normally moves 0.1-0.2 years per calendar
-# year, so a five-year reach costs under a year of e(x); the 2.4-year fall from
-# 2019 to 2021 is why the reach is not longer. Past it the table is no longer
-# an answer to the question that was asked, so the lookup returns nothing.
-SSA_YEAR_TOLERANCE = 5.0
+# No default limit on how far the matched year may sit from the requested one.
+# The package's documented contract is closest-year matching, and `lost_years_ssa`
+# is explicitly a counterfactual ("what if this person had had US life
+# expectancy"), so a 2003 death answered from the 2022 table is the intent
+# rather than an error. What was wrong before was doing it silently: the
+# matched year and its distance are now always reported. Callers who want a
+# hard limit pass `year_tolerance`.
+SSA_YEAR_TOLERANCE = None
 
 SSA_OUTPUT_COLS = ["ssa_age", "ssa_year", "ssa_life_expectancy", "ssa_match_status"]
+
+
+def _match_status(
+    *,
+    requested_age: float,
+    matched_age: float,
+    requested_year: float,
+    matched_year: float,
+) -> str:
+    """Describe how far the matched row sits from what was asked for.
+
+    The table is a single calendar year, so an older query is answered from it
+    by design (the counterfactual the package documents). Saying only "ok"
+    would hide a two-decade gap, so the distance is spelled out.
+
+    Args:
+        requested_age: Age the caller asked for.
+        matched_age: Age the lookup used.
+        requested_year: Calendar year the caller asked for.
+        matched_year: Calendar year the lookup used.
+
+    Returns:
+        "ok" for an exact match, otherwise a description of the gap.
+    """
+    notes = []
+    if float(matched_age) != float(requested_age):
+        notes.append(f"age {matched_age} for requested {requested_age}")
+    if float(matched_year) != float(requested_year):
+        gap = abs(float(matched_year) - float(requested_year))
+        notes.append(
+            f"table year {matched_year} for requested {requested_year} "
+            f"({gap:.0f} years away)"
+        )
+    return "ok" if not notes else "ok: " + "; ".join(notes)
 
 
 class LostYearsSSAData:
@@ -108,7 +144,12 @@ class LostYearsSSAData:
                     "ssa_age": age,
                     "ssa_year": year,
                     "ssa_life_expectancy": float(match.iloc[0][ecol]),
-                    "ssa_match_status": "ok",
+                    "ssa_match_status": _match_status(
+                        requested_age=r[df_cols["age"]],
+                        matched_age=age,
+                        requested_year=r[df_cols["year"]],
+                        matched_year=year,
+                    ),
                 }
             )
 
