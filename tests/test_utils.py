@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from lost_years.utils import (
     closest,
@@ -97,6 +98,29 @@ class TestUtilFunctions:
 
         assert closest(arr, 2.0) == 2.5
         assert closest(arr, 4.0) == 3.8
+
+    def test_closest_rejects_a_missing_target(self):
+        """`abs(x - nan)` is nan, so `min` used to fall through to index 0."""
+        lst = [0.0, 1.0, 2.0]
+        with pytest.raises(ValueError, match="missing value"):
+            closest(lst, float("nan"))
+        with pytest.raises(ValueError, match="missing value"):
+            closest(lst, None)
+
+    def test_closest_skips_missing_candidates(self):
+        """A missing candidate is not a match for anything."""
+        assert closest([float("nan"), 3.0], 2.0) == 3.0
+        with pytest.raises(ValueError, match="no candidate values"):
+            closest([float("nan")], 2.0)
+
+    def test_closest_refuses_beyond_the_tolerance(self):
+        """1900 and 2500 must not both resolve to the one packaged year."""
+        years = [2022.0]
+        assert closest(years, 2020, tolerance=5) == 2022.0
+        with pytest.raises(ValueError, match="more than 5 from 1900"):
+            closest(years, 1900, tolerance=5)
+        with pytest.raises(ValueError, match="more than 5 from 2500"):
+            closest(years, 2500, tolerance=5)
 
     def test_closest_edge_cases(self):
         """Test closest function with edge cases."""
