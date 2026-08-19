@@ -9,6 +9,7 @@
 
 Home <self>
 Examples <examples>
+Data Dictionary <data-dictionary>
 API Reference <api>
 CLI Reference <cli>
 GitHub <https://github.com/gojiplus/lost_years>

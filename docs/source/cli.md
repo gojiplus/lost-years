@@ -49,6 +49,11 @@ lost_years_ssa input.csv -o output.csv
 - `ssa_age` - Matched age used
 - `ssa_year` - Matched year used
 - `ssa_life_expectancy` - Expected years remaining
+- `ssa_match_status` - `ok`, or why no figure was returned
+
+The packaged table is the 2022 period life table. A year more than five years
+away from it, or a missing age, returns a missing life expectancy and a reason
+in `ssa_match_status` rather than the nearest number in the table.
 
 ### lost_years_hld
 
@@ -59,7 +64,7 @@ lost_years_hld input.csv -o output.csv
 ```
 
 **Required columns in input file:**
-- `country` - Country code (e.g., BRA, CHE)
+- `country` - ISO-3166-1 alpha-3 country code (e.g., BRA, CHE), matched exactly
 - `age` - Age at death
 - `sex` - Sex (M/F)
 - `year` - Year of death
@@ -70,18 +75,26 @@ lost_years_hld input.csv -o output.csv
 - `-s, --sex` - Column name for sex (default: `sex`)
 - `-y, --year` - Column name for year (default: `year`)
 - `-o, --output` - Output file path
-- `--download-hld` - Download latest HLD data
+- `--subpopulations` - Emit one row per sub-population instead of the national total
+- `--year-tolerance N` - Accept a life table whose period misses the year by up to N years
+- `--no-quarantine` - Serve life tables whose recalculated and published e(x) disagree
 
 **Output columns added:**
-- `hld_country` - Country code
-- `hld_age` - Matched age
-- `hld_year1` - Matched year
-- `hld_life_expectancy` - Expected years remaining
-- Additional columns for sub-populations if available
+- `hld_country`, `hld_sex` - Matched country and sex
+- `hld_year1`, `hld_year2` - Period the matched life table covers
+- `hld_age`, `hld_age_interval` - Matched age interval (`99` marks the open top interval)
+- `hld_life_expectancy` - Expected years remaining at `hld_age`
+- `hld_ref_id`, `hld_version`, `hld_type_lt` - Which HLD life table was used
+- `hld_ex_discrepancy` - Largest gap between recalculated and published e(x) in that table
+- `hld_n_candidates` - How many equally eligible life tables the tie-break chose between
+- `hld_match_status` - `ok`, or why no figure was returned
+- `hld_region`, `hld_residence`, `hld_ethnicity`, `hld_socdem` - Sub-population codes (`0` is the total)
+
+The selection rule is documented in the [data dictionary](data-dictionary.md).
 
 ### lost_years_who
 
-Calculate expected years lost using WHO data:
+Look up WHO life expectancy at birth:
 
 ```bash
 lost_years_who input.csv -o output.csv
@@ -89,23 +102,25 @@ lost_years_who input.csv -o output.csv
 
 **Required columns in input file:**
 - `country` - Country code
-- `age` - Age at death
 - `sex` - Sex (M/F)
 - `year` - Year of death
 
+There is no age option. The packaged WHO table is indicator WHOSIS_000001,
+life expectancy at birth, and has no age dimension; use `lost_years_hld` for
+remaining life expectancy at a given age.
+
 **Options:**
 - `-c, --country` - Column name for country (default: `country`)
-- `-a, --age` - Column name for age (default: `age`)
 - `-s, --sex` - Column name for sex (default: `sex`)
 - `-y, --year` - Column name for year (default: `year`)
 - `-o, --output` - Output file path
 
 **Output columns added:**
 - `who_country` - Country code
-- `who_age` - Matched age
 - `who_year` - Matched year
 - `who_sex` - Sex code used
-- `who_life_expectancy` - Expected years remaining
+- `who_life_expectancy_at_birth` - Life expectancy at birth
+- `who_match_status` - `ok`, or why no figure was returned
 
 ## Examples
 
@@ -159,26 +174,31 @@ lost_years_ssa input.csv \
 ## Data Coverage
 
 ### SSA (United States)
-- Years: 1900-2100 (projected)
-- Ages: 0-119
+- Years: 2022 (one period life table)
+- Ages: 0-119, single years
 - Sex: Male/Female
 
 ### HLD (International)
-- Countries: 40+ countries
-- Years: Varies by country (typically 1950-2020)
-- Ages: 0-110+
-- Additional dimensions for some countries
+- Countries: 142 in the file; 133 have a whole-country total-population table
+- Years: 1751-2023, varying by country and often as multi-year periods
+- Ages: single years or abridged intervals, depending on the source table
+- Sub-populations (regions, urban/rural, ethnicity, socio-demographic groups)
+  available with `--subpopulations`
 
 ### WHO (Global)
-- Countries: 180+ countries
-- Years: 2000-2019
-- Ages: 5-year bands
+- Countries: 196
+- Years: 2000-2021
+- Ages: none -- life expectancy at birth only
 - Sex: Male/Female/Both
 
 ## Notes
 
-- The tools automatically match to the closest available year and age if exact matches aren't found
-- The matched values are included in output columns so you can verify what data was used
-- HLD may return multiple rows per input if sub-populations are available
+- SSA and WHO match to the closest available year and age, but only within a
+  tolerance; past it they return nothing and say so in `*_match_status`
+- HLD matches on the period a life table actually covers, and returns nothing
+  for a country-year no table covers unless `--year-tolerance` is given
+- The matched values are included in output columns so you can verify what data
+  was used
+- HLD returns one row per input row unless `--subpopulations` is given
 - For US-specific analysis, SSA provides the most detailed data
 - For international comparisons, use HLD or WHO for consistency

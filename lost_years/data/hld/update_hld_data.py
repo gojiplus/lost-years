@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 # Base directory
 DATA_DIR = Path(__file__).parent
 
+CODE_COLUMNS = ["Region", "Residence", "Ethnicity", "SocDem", "Ref-ID"]
+
 
 class HLDDataUpdater:
     """HLD data updater with manual download instructions."""
@@ -89,8 +91,16 @@ class HLDDataUpdater:
             chunk_size = 50000
             total_rows = 0
 
+            # Region, Residence, Ethnicity, SocDem and Ref-ID are alphanumeric
+            # codes. Reading them without dtype= sends the numeric-looking ones
+            # through float and writes them back as "0.0", which breaks the
+            # `== "0"` test for a whole-country total-population life table.
             for chunk in pd.read_csv(
-                csv_path, chunksize=chunk_size, low_memory=False, on_bad_lines="skip"
+                csv_path,
+                chunksize=chunk_size,
+                low_memory=False,
+                on_bad_lines="skip",
+                dtype=dict.fromkeys(CODE_COLUMNS, str),
             ):
                 chunks.append(chunk)
                 total_rows += len(chunk)

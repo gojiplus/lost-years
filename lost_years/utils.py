@@ -63,20 +63,47 @@ def fixup_columns(cols: list[Any]) -> list[str]:
     return out_cols
 
 
-def closest(lst: "list[float] | npt.NDArray[np.floating[Any]]", c: float) -> float:
+def closest(
+    lst: "list[float] | npt.NDArray[np.floating[Any]]",
+    c: float,
+    tolerance: float | None = None,
+) -> float:
     """Find closest value in list or array.
+
+    A missing target is rejected rather than matched. ``abs(x - nan)`` is
+    ``nan`` and ``nan`` compares False against everything, so ``min`` used to
+    fall through to the first element: a row with no age silently returned the
+    life expectancy at age 0.
+
+    ``tolerance`` bounds how far the answer may sit from the question. Without
+    it, asking for the year 1900 or 2500 against a table that holds only 2022
+    returns the 2022 figure with nothing to say it is not an answer.
 
     Args:
         lst: List of floats or numpy array
         c: Target value to find closest match for
+        tolerance: Largest accepted distance between ``c`` and the match.
+            None accepts any distance.
 
     Returns:
         Closest value in the list/array
+
+    Raises:
+        ValueError: If ``c`` is missing, if there is no non-missing candidate,
+            or if the closest candidate is further than ``tolerance`` away.
     """
+    if c is None or pd.isna(c):
+        raise ValueError("cannot match a missing value")
     working_list: list[float] = lst if isinstance(lst, list) else lst.tolist()
-    return working_list[
-        min(range(len(working_list)), key=lambda i: abs(working_list[i] - c))
-    ]
+    candidates = [v for v in working_list if v is not None and not pd.isna(v)]
+    if not candidates:
+        raise ValueError("no candidate values to match against")
+    match = min(candidates, key=lambda v: abs(v - c))
+    if tolerance is not None and abs(match - c) > tolerance:
+        raise ValueError(
+            f"closest available value {match} is more than {tolerance} from {c}"
+        )
+    return match
 
 
 def download_file(url: str, local_path: str | Path | None = None) -> None:
