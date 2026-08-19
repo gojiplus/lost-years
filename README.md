@@ -4,7 +4,7 @@
 [![Documentation Status](https://github.com/gojiplus/lost-years/actions/workflows/docs.yml/badge.svg)](https://gojiplus.github.io/lost-years/)
 [![Downloads](https://static.pepy.tech/badge/lost-years)](https://pepy.tech/project/lost-years)
 
-Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/HistEst/PerLifeTables/), [HLD data](https://www.lifetable.de/), and [WHO life table data](https://platform.who.int/mortality).
+Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/STATS/table4c6.html), [HLD data](https://www.lifetable.de/), and [WHO Global Health Observatory life expectancy](https://www.who.int/data/gho).
 
 **The data is yours to update.** Only the SSA table ships in the wheel -- a US federal work in the public domain, 10 KB, so US lookups work offline the moment you install. HLD and WHO are downloaded on request, because lifetable.de asks that users fetch their own copy and because a packaged WHO table would be stale the day WHO revises it:
 
@@ -19,7 +19,7 @@ An update downloads to a scratch directory, builds a typed Parquet table, checks
 
 The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lost_years_who`:
 
-* **`lost_years_ssa`**: Joins to the [SSA period life table](https://www.ssa.gov/oact/HistEst/PerLifeTables/), the one table that ships in the wheel.
+* **`lost_years_ssa`**: Joins to the [SSA Actuarial Life Table](https://www.ssa.gov/oact/STATS/table4c6.html), the one table that ships in the wheel.
 
     * **Inputs:** `age`, `sex`, `year`.
     * **Matching:** the matched age and year are reported in `ssa_age` and `ssa_year`, and `ssa_match_status` spells out how far the match reached. The package ships one SSA table (2022) and `lost_years_ssa` is explicitly a counterfactual, so a distant year is still answered -- from the 2022 table, saying so. Pass `year_tolerance=5` to refuse instead.
@@ -36,9 +36,9 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
         * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/data/hld/source/formats.pdf). For more information, check [HLD](https://www.lifetable.de/).
         * To make it easier to use, we normalize the column names.
 
-* **`lost_years_who`**: Joins to the WHO [life expectancy at birth](https://platform.who.int/mortality) indicator.
+* **`lost_years_who`**: Joins to the WHO Global Health Observatory [life expectancy at birth](https://www.who.int/data/gho) indicator.
 
-    * **Inputs:** `sex`, `year`, `country`. **There is no age input**: the packaged WHO table is indicator WHOSIS_000001, life expectancy *at birth*, and has no age dimension. The returned column is named `who_life_expectancy_at_birth` to say so, and passing an `age` mapping raises `ValueError` rather than being ignored. For remaining life expectancy at a given age, use `lost_years_hld`.
+    * **Inputs:** `sex`, `year`, `country`. **There is no age input**: the WHO table is GHO indicator WHOSIS_000001, life expectancy *at birth*, and has no age dimension. The returned column is named `who_life_expectancy_at_birth` to say so, and passing an `age` mapping raises `ValueError` rather than being ignored. For remaining life expectancy at a given age, use `lost_years_hld`.
     * **Matching:** the matched year is reported in `who_year`; the table covers 2000-2021 and a year outside it is answered from the nearest year, which `who_match_status` reports. Pass `year_tolerance` to refuse instead.
 
 ### Matching rules

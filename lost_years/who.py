@@ -1,7 +1,7 @@
 """WHO (World Health Organization) life expectancy tables for lost_years.
 
-The packaged WHO table is indicator WHOSIS_000001, *life expectancy at birth*.
-It has no age dimension: one value per country, year and sex. The lookup
+The WHO table is GHO indicator WHOSIS_000001, *life expectancy at birth*. It
+has no age dimension: one value per population, year and sex. The lookup
 therefore answers questions about age 0 only, and says so in the name of the
 column it returns. Asking it for remaining life expectancy at a given age is a
 question it cannot answer, so an explicit ``age`` mapping raises instead of
@@ -81,7 +81,7 @@ class LostYearsWHOData:
         """
         if cols is not None and "age" in cols:
             raise ValueError(
-                "the packaged WHO table is life expectancy at birth and has no "
+                "the WHO table is life expectancy at birth and has no "
                 "age dimension; drop the 'age' mapping, or use lost_years_hld "
                 "for remaining life expectancy at a given age"
             )

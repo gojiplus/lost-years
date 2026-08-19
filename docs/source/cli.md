@@ -156,8 +156,8 @@ lost_years_who input.csv -o output.csv
 - `sex` - Sex (M/F)
 - `year` - Year of death
 
-There is no age option. The packaged WHO table is indicator WHOSIS_000001,
-life expectancy at birth, and has no age dimension; use `lost_years_hld` for
+There is no age option. The WHO table is GHO indicator WHOSIS_000001, life
+expectancy at birth, and has no age dimension; use `lost_years_hld` for
 remaining life expectancy at a given age.
 
 **Options:**
