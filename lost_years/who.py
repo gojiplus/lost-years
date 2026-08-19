@@ -10,7 +10,6 @@ being quietly ignored; use :func:`lost_years.lost_years_hld` for that.
 
 import argparse
 import logging
-import re
 import sys
 from typing import Any
 
@@ -43,9 +42,6 @@ class LostYearsWHOData:
     """WHO life-table lookup, caching the packaged table on first use."""
 
     __df = None
-    # A cache filled at runtime, not a default shared between instances: every
-    # access goes through the class, so RUF012's ClassVar advice does not apply.
-    __who_trans: dict[str, str] = {}  # noqa: RUF012
 
     @classmethod
     def lost_years_who(
@@ -155,27 +151,6 @@ class LostYearsWHOData:
         record: dict[str, Any] = dict.fromkeys(WHO_OUTPUT_COLS)
         record["who_match_status"] = status
         return record
-
-    @classmethod
-    def convert_agegroup(cls, ag: str) -> int:
-        """Convert a WHO age-group code to the lower bound of its range.
-
-        Args:
-            ag: WHO age group code, e.g. ``AGE45-49`` or ``AGE85PLUS``.
-
-        Returns:
-            The lowest age in the group, or 0 when the code is unrecognised.
-        """
-        if ag == "AGE100+":
-            return 100
-        if ag == "AGE85PLUS":
-            return 85
-        if ag == "AGELT1":
-            return 1
-        m = re.match(r"AGE(\d+)\-(\d+)", ag)
-        if m:
-            return int(m.group(1))
-        return 0
 
 
 lost_years_who = LostYearsWHOData.lost_years_who

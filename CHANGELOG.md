@@ -85,8 +85,10 @@ Releases before 0.7.0 predate this file; see the
 - The per-source `update_*.py` maintenance scripts, `schemas.py`,
   `update_all_data.py` and the WHO scraping notebook, superseded by
   `lost_years update`.
-- Dead `WHO_COLS`, and `hld.normalise_code`, which moved to
-  `lost_years.sources.hld` where the repair now happens.
+- Dead `WHO_COLS`, `LostYearsWHOData.convert_agegroup` and its unused
+  translation cache — leftovers from the age-band indicator the package does
+  not use — and `hld.normalise_code`, which moved to `lost_years.sources.hld`
+  where the repair now happens.
 
 ### Fixed — wrong answers
 
