@@ -6,10 +6,59 @@
 pip install lost-years
 ```
 
-After installation, three command-line tools are available:
+After installation, four command-line tools are available:
+- `lost_years` - install and inspect the life tables the lookups read
 - `lost_years_ssa` - US Social Security Administration data
 - `lost_years_hld` - Human Life-Table Database (international)
 - `lost_years_who` - World Health Organization data
+
+## lost_years: managing the data
+
+Only the SSA table ships in the wheel. HLD and WHO are downloaded on request:
+
+```bash
+lost_years update --source all      # or hld / who / ssa
+lost_years status                   # what is installed, and has upstream moved?
+lost_years sources                  # where each table comes from, and on what terms
+```
+
+### lost_years update
+
+Downloads to a scratch directory, builds a typed Parquet table, checks it
+against the declared Arrow schema, a row-count contract and the published
+life-expectancy figures, and **only then** swaps it into place. A candidate
+that fails any check is discarded and the table you already had is untouched.
+
+**Options:**
+- `--source {hld,ssa,who,all}` - which source to update (default: `all`)
+- `--from-file PATH` - build from a local artifact instead of downloading.
+  ssa.gov refuses automated clients from some networks; save the page in a
+  browser and pass it here to run exactly the same parse, validation and swap.
+- `--output DIR` - install somewhere other than the per-user data directory
+
+Tables land in the per-user data directory, which `$LOST_YEARS_DATA_DIR`
+overrides and `lost_years status` prints.
+
+### lost_years status
+
+Reports, per source: what is installed, which upstream release it is, when it
+was fetched, how many rows it has, and what upstream is publishing now.
+
+```text
+source  state     installed    upstream     rows
+hld     stale     2025-04-07   2026-02-03   2,182,429
+ssa     unknown   2022         -            120
+who     current   2021         2021         12,936
+```
+
+`--offline` reports what is installed without contacting upstream. A table
+whose SHA-256 no longer matches its manifest is reported as `damaged`.
+
+### lost_years sources
+
+Prints the registry: home page, download URL, licence and filename for each
+source. Read it before redistributing anything derived from these tables --
+HLD in particular carries no redistribution grant.
 
 ## Basic Usage
 
@@ -51,9 +100,11 @@ lost_years_ssa input.csv -o output.csv
 - `ssa_life_expectancy` - Expected years remaining
 - `ssa_match_status` - `ok`, or why no figure was returned
 
-The packaged table is the 2022 period life table. A year more than five years
-away from it, or a missing age, returns a missing life expectancy and a reason
-in `ssa_match_status` rather than the nearest number in the table.
+The shipped table is the 2022 period life table. A distant year is still
+answered from it -- `lost_years_ssa` is a counterfactual -- but
+`ssa_match_status` always names the table year and how far the reach was. A
+missing age returns a missing life expectancy and a reason, rather than the
+first number in the table.
 
 ### lost_years_hld
 
@@ -174,6 +225,7 @@ lost_years_ssa input.csv \
 ## Data Coverage
 
 ### SSA (United States)
+- Ships in the wheel; everything else is installed with `lost_years update`
 - Years: 2022 (one period life table)
 - Ages: 0-119, single years
 - Sex: Male/Female
@@ -193,8 +245,9 @@ lost_years_ssa input.csv \
 
 ## Notes
 
-- SSA and WHO match to the closest available year and age, but only within a
-  tolerance; past it they return nothing and say so in `*_match_status`
+- SSA and WHO match to the closest available year and age and always report the
+  distance in `*_match_status`; pass `--year-tolerance`/`year_tolerance` to
+  refuse a match beyond a limit instead
 - HLD matches on the period a life table actually covers, and returns nothing
   for a country-year no table covers unless `--year-tolerance` is given
 - The matched values are included in output columns so you can verify what data

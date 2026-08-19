@@ -12,18 +12,20 @@ import argparse
 import logging
 import re
 import sys
-from importlib.resources import files
 from typing import Any
 
 import pandas as pd
+import pyarrow.parquet as pq
 
+from .datasets import TableUnavailableError, resolve
 from .utils import closest, column_exists, fixup_columns
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
-WHO_DATA = files("lost_years") / "data" / "who" / "who.csv.gz"
-WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "high_ci"]
+# Not shipped: a packaged copy is stale the day WHO publishes a revision and
+# nothing in the wheel would say so. `lost_years update --source who` fetches it.
+WHO_FILENAME = "who.parquet"
 
 # Same policy as SSA: report the matched year rather than refuse. See ssa.py.
 WHO_YEAR_TOLERANCE = None
@@ -75,6 +77,11 @@ class LostYearsWHOData:
         Raises:
             ValueError: If ``cols`` maps an ``age`` column. The WHO table
                 cannot answer an age-specific question.
+
+        Note:
+            Propagates :class:`lost_years.TableUnavailableError` when no WHO
+            table has been downloaded yet; run ``lost_years update --source
+            who`` once to install it.
         """
         if cols is not None and "age" in cols:
             raise ValueError(
@@ -92,8 +99,10 @@ class LostYearsWHOData:
             df_cols[col] = tcol
 
         if cls.__df is None:
-            cls.__df = pd.read_csv(str(WHO_DATA), compression="gzip").rename(
-                columns={"country_code": "country", "sex_code": "sex"}
+            cls.__df = (
+                pq.read_table(resolve("who", WHO_FILENAME))
+                .to_pandas()
+                .rename(columns={"country_code": "country", "sex_code": "sex"})
             )
 
         years = cls.__df["year"].unique()
@@ -179,7 +188,8 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         argv: Command line arguments, defaulting to the process arguments.
 
     Returns:
-        0 on success, -1 when a required column is missing.
+        0 on success, -1 when a required column is missing or no WHO table has
+        been installed.
     """
     title = "Appends WHO life expectancy at birth by country, sex and year"
     parser = argparse.ArgumentParser(description=title)
@@ -220,14 +230,18 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
             logger.error("Column: `%s` not found in the input file", col_arg)
             return -1
 
-    rdf = lost_years_who(
-        df,
-        cols={
-            "country": args.country,
-            "sex": args.sex,
-            "year": args.year,
-        },
-    )
+    try:
+        rdf = lost_years_who(
+            df,
+            cols={
+                "country": args.country,
+                "sex": args.sex,
+                "year": args.year,
+            },
+        )
+    except TableUnavailableError as exc:
+        logger.error("%s", exc)
+        return -1
 
     logger.info("Saving output to file: `%s`", args.output)
     rdf.columns = fixup_columns(rdf.columns)  # type: ignore[arg-type]

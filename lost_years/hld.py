@@ -12,40 +12,20 @@ import argparse
 import functools
 import logging
 import sys
-from importlib.resources import files
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pyarrow.parquet as pq
 
+from .datasets import TableUnavailableError, resolve
 from .utils import column_exists, fixup_columns
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
-# HLD Configuration
-HLD_DATA = files("lost_years") / "data" / "hld" / "hld.csv.gz"
-
-# Columns needed to identify a life table and read a life expectancy off it.
-# The other life-table functions -- m(x), q(x), l(x), d(x), L(x), T(x) -- play
-# no part in a lookup and are not read.
-HLD_COLS = [
-    "Country",
-    "Region",
-    "Residence",
-    "Ethnicity",
-    "SocDem",
-    "Version",
-    "Ref-ID",
-    "Year1",
-    "Year2",
-    "TypeLT",
-    "Sex",
-    "Age",
-    "AgeInt",
-    "e(x)",
-    "e(x)Orig",
-]
+# HLD is not shipped: lifetable.de asks that users download their own copy.
+# `lost_years update --source hld` fetches it and writes this file.
+HLD_FILENAME = "hld.parquet"
 
 # Codebook fields that identify a sub-population. "0" means whole country /
 # total population in every one of them (HLD formats.pdf, section 3.1).
@@ -108,97 +88,33 @@ OUTPUT_COLS = [
     "hld_socdem",
 ]
 
-RENAMED_COLS = {
-    "Country": "country",
-    "Region": "region",
-    "Residence": "residence",
-    "Ethnicity": "ethnicity",
-    "SocDem": "socdem",
-    "Version": "version",
-    "Ref-ID": "ref_id",
-    "Year1": "year1",
-    "Year2": "year2",
-    "TypeLT": "type_lt",
-    "Age": "age",
-    "AgeInt": "age_interval",
-    "e(x)": "life_expectancy",
-    "e(x)Orig": "life_expectancy_published",
-}
 
-# Read as text: the sub-population codes and Ref-ID are alphanumeric codes that
-# a float round-trip corrupts, and e(x)Orig uses "." for missing.
-STRING_COLS = [
-    "Country",
-    "Region",
-    "Residence",
-    "Ethnicity",
-    "SocDem",
-    "Ref-ID",
-    "e(x)Orig",
-]
-
-
-def normalise_code(codes: pd.Series) -> pd.Series:
-    """Repair sub-population codes damaged in packaging.
-
-    The packaged CSV was written by a reader with no ``dtype=``, so integer
-    codes went through float and came back as ``'0.0'``, ``'10.0'`` and so on;
-    a naive ``== '0'`` filter loses 167,028 whole-country rows. HLD also writes
-    a literal ``NA`` for countries with no regional subdivisions, which pandas
-    reads as missing. The codebook has no "region unknown" code and every such
-    row is a whole-country table (NIU, KIR, NRU, and the single-year national
-    tables for HUN 2018, IRN 2004, ISR 2013-17 and SWE 2019), so missing maps
-    to ``'0'``.
-
-    Args:
-        codes: Raw code column, read as strings.
-
-    Returns:
-        Codes with any trailing ``.0`` removed and missing values set to "0".
-    """
-    out = codes.fillna(NATIONAL_CODE).astype(str).str.strip()
-    return out.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
-
-
+@functools.lru_cache(maxsize=1)
 def read_hld() -> pd.DataFrame:
-    """Read the pooled HLD file and normalise it for lookup.
+    """Read the derived HLD table.
+
+    The file is built by ``lost_years update --source hld``, which is where the
+    upstream repairs live: sub-population codes read as text, HLD's literal
+    ``NA`` region mapped to the whole-country code, and each life table's own
+    largest ``|e(x) - e(x)Orig|`` precomputed into ``ex_discrepancy``. Reading
+    is therefore a plain load with no cleaning, and the manifest beside the
+    file says which upstream release it came from.
 
     Returns:
-        Every HLD row, with tidy column names, repaired sub-population codes,
-        M/F sex labels, and an ``ex_discrepancy`` column holding the largest
-        ``|e(x) - e(x)Orig|`` found anywhere in that row's own life table.
+        Every HLD row eligible to be looked up, one per age interval of one
+        published life table.
     """
-    df = pd.read_csv(
-        str(HLD_DATA),
-        compression="gzip",
-        usecols=HLD_COLS,
-        dtype=dict.fromkeys(STRING_COLS, str),
-        low_memory=False,
-    )
-    df = df.rename(columns=RENAMED_COLS)
-    df["sex"] = df["Sex"].map({1: "M", 2: "F"})
-    df = df.drop(columns=["Sex"])
-    for col in CODE_COLS:
-        df[col] = normalise_code(df[col])
-    for col in ("life_expectancy", "life_expectancy_published"):
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    gap = (df["life_expectancy"] - df["life_expectancy_published"]).abs()
-    df["ex_discrepancy"] = gap.groupby(
-        [df[c] for c in TABLE_KEY], dropna=False
-    ).transform("max")
-    # Ref-ID sorts as NNNN.PP, so lexical order would put "9.01" above
-    # "1042.01"; the tie-break needs the numeric order.
-    df["ref_id_sort"] = pd.to_numeric(df["ref_id"], errors="coerce")
-    return df.dropna(subset=["country", "sex", "life_expectancy", "year1", "year2"])
+    path = resolve("hld", HLD_FILENAME)
+    logger.info("Reading HLD table from %s", path)
+    return pq.read_table(path).to_pandas()
 
 
-@functools.lru_cache(maxsize=4)
-def load_hld_table(
+def eligible_tables(
+    table: pd.DataFrame,
     national_only: bool = True,
     max_ex_discrepancy: float | None = DEFAULT_MAX_EX_DISCREPANCY,
 ) -> pd.DataFrame:
-    """Load the HLD life tables that are eligible to answer a lookup.
+    """Keep only the HLD life tables that are allowed to answer a lookup.
 
     Three filters run before any query is answered:
 
@@ -210,8 +126,35 @@ def load_hld_table(
     3. Tables whose recalculated and published life expectancies disagree by
        more than ``max_ex_discrepancy`` years are quarantined.
 
-    The result is cached, so repeated calls with the same arguments do not
-    re-read the 52 MB packaged file.
+    Args:
+        table: Every HLD row, as returned by :func:`read_hld`.
+        national_only: Keep only whole-country, total-population life tables.
+        max_ex_discrepancy: Quarantine threshold in years. None serves the
+            quarantined tables anyway.
+
+    Returns:
+        The eligible subset.
+    """
+    if national_only:
+        mask = table[CODE_COLS[0]] == NATIONAL_CODE
+        for col in CODE_COLS[1:]:
+            mask &= table[col] == NATIONAL_CODE
+        table = table[mask]
+    table = table[table["type_lt"] != 2]
+    if max_ex_discrepancy is not None:
+        table = table[~(table["ex_discrepancy"] > max_ex_discrepancy)]
+    return table
+
+
+@functools.lru_cache(maxsize=4)
+def load_hld_table(
+    national_only: bool = True,
+    max_ex_discrepancy: float | None = DEFAULT_MAX_EX_DISCREPANCY,
+) -> pd.DataFrame:
+    """Load the HLD life tables that are eligible to answer a lookup.
+
+    The result is cached, so repeated calls with the same arguments neither
+    re-read nor re-filter the 2.2M-row table.
 
     Args:
         national_only: Keep only whole-country, total-population life tables.
@@ -221,21 +164,13 @@ def load_hld_table(
     Returns:
         The eligible subset of the HLD table.
     """
-    logger.info("Loading HLD data (2.2M rows, this takes a few seconds)...")
     table = read_hld()
     logger.info(
         "Loaded HLD data: %d rows, %d countries",
         len(table),
         table["country"].nunique(),
     )
-    if national_only:
-        mask = table[CODE_COLS[0]] == NATIONAL_CODE
-        for col in CODE_COLS[1:]:
-            mask &= table[col] == NATIONAL_CODE
-        table = table[mask]
-    table = table[table["type_lt"] != 2]
-    if max_ex_discrepancy is not None:
-        table = table[~(table["ex_discrepancy"] > max_ex_discrepancy)]
+    table = eligible_tables(table, national_only, max_ex_discrepancy)
     logger.info("Eligible HLD rows after filtering: %d", len(table))
     return table
 
@@ -392,7 +327,9 @@ def select_subpopulations(
     """
     rows = table[table["country"] == country]
     records = []
-    for _, group in rows.groupby(CODE_COLS, sort=True):
+    # observed=True: the code columns are dictionary-encoded, so the default
+    # would enumerate every code seen anywhere in HLD for every country.
+    for _, group in rows.groupby(CODE_COLS, sort=True, observed=True):
         record = select_life_expectancy(
             group, country, year, sex, age, year_tolerance=year_tolerance
         )
@@ -455,6 +392,11 @@ class LostYearsHLDData:
 
         Returns:
             The input DataFrame with the HLD columns appended.
+
+        Note:
+            Propagates :class:`lost_years.TableUnavailableError` when no HLD
+            table has been downloaded yet. HLD is not shipped in the wheel; run
+            ``lost_years update --source hld`` once to install it.
         """
         df_cols = {}
         for col in ["country", "age", "sex", "year"]:
@@ -463,11 +405,6 @@ class LostYearsHLDData:
                 logger.warning("No column `%s` in the DataFrame", tcol)
                 return df
             df_cols[col] = tcol
-
-        if not Path(str(HLD_DATA)).exists():
-            logger.error("HLD data file not found: %s", HLD_DATA)
-            logger.info("Download the pooled file from https://www.lifetable.de/")
-            return df
 
         table = load_hld_table(
             national_only=not subpopulations,
@@ -508,7 +445,8 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         argv: Command line arguments, defaulting to the process arguments.
 
     Returns:
-        0 on success, -1 when a required column is missing.
+        0 on success, -1 when a required column is missing or no HLD table has
+        been installed.
     """
     title = "Appends Lost Years data from HLD (Human Life-Table Database)"
     parser = argparse.ArgumentParser(description=title)
@@ -572,18 +510,24 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
             return -1
 
     # Apply HLD lookup
-    result_df = lost_years_hld(
-        df,
-        cols={
-            "country": args.country,
-            "age": args.age,
-            "sex": args.sex,
-            "year": args.year,
-        },
-        subpopulations=args.subpopulations,
-        max_ex_discrepancy=None if args.no_quarantine else DEFAULT_MAX_EX_DISCREPANCY,
-        year_tolerance=args.year_tolerance,
-    )
+    try:
+        result_df = lost_years_hld(
+            df,
+            cols={
+                "country": args.country,
+                "age": args.age,
+                "sex": args.sex,
+                "year": args.year,
+            },
+            subpopulations=args.subpopulations,
+            max_ex_discrepancy=(
+                None if args.no_quarantine else DEFAULT_MAX_EX_DISCREPANCY
+            ),
+            year_tolerance=args.year_tolerance,
+        )
+    except TableUnavailableError as exc:
+        logger.error("%s", exc)
+        return -1
 
     # Save output
     logger.info("Saving output to file: `%s`", args.output)

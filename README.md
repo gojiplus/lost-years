@@ -6,16 +6,23 @@
 
 Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/HistEst/PerLifeTables/), [HLD data](https://www.lifetable.de/), and [WHO life table data](https://platform.who.int/mortality).
 
-**Data Currency Note**: the packaged SSA table is the 2022 period life table, WHO covers 2000-2021, and HLD is the 07.04.2025 release covering 1751-2023. To refresh them, run the per-source maintenance scripts under `lost_years/data/`; HLD still needs a manual download from [lifetable.de](https://www.lifetable.de/).
+**The data is yours to update.** Only the SSA table ships in the wheel -- a US federal work in the public domain, 10 KB, so US lookups work offline the moment you install. HLD and WHO are downloaded on request, because lifetable.de asks that users fetch their own copy and because a packaged WHO table would be stale the day WHO revises it:
+
+```bash
+lost_years update --source all   # download, validate, install
+lost_years status                # what is installed, and has upstream moved?
+```
+
+An update downloads to a scratch directory, builds a typed Parquet table, checks it against the declared schema, a row-count contract and the published life-expectancy figures, and **only then** swaps it into place. A truncated or corrupt download never replaces a working table. Each installed table carries a manifest recording its source URL, upstream release, fetch time, row count and SHA-256. See the [data dictionary](https://gojiplus.github.io/lost-years/data-dictionary.html) for the columns, the checks and the known upstream defects.
 
 **Every lookup either answers the question asked or says it cannot.** Each function returns a `*_match_status` column, and a row that could not be matched carries a missing life expectancy rather than the nearest number that happened to be in the table. The matching rules for each source are summarised below.
 
 The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lost_years_who`:
 
-* **`lost_years_ssa`**: Joins to the final SSA dataset stored [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/ssa/ssa.csv). The data are from [SSA actuarial data](https://www.ssa.gov/oact/STATS/)
+* **`lost_years_ssa`**: Joins to the [SSA period life table](https://www.ssa.gov/oact/HistEst/PerLifeTables/), the one table that ships in the wheel.
 
     * **Inputs:** `age`, `sex`, `year`.
-    * **Matching:** the matched age and year are reported in `ssa_age` and `ssa_year`. The package ships one SSA table (2022), so a year more than `year_tolerance` (default 5) away returns nothing; pass `year_tolerance=None` to accept any distance.
+    * **Matching:** the matched age and year are reported in `ssa_age` and `ssa_year`, and `ssa_match_status` spells out how far the match reached. The package ships one SSA table (2022) and `lost_years_ssa` is explicitly a counterfactual, so a distant year is still answered -- from the 2022 table, saying so. Pass `year_tolerance=5` to refuse instead.
     * **What the function does:** `lost_years_ssa` is only applicable to the US, so it ignores country and gives the counterfactual of what the expected years lost would be if the person who died had US mortality.
 
 * **`lost_years_hld`**: Joins to the international [life table](https://www.lifetable.de/) data.
@@ -26,20 +33,20 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
     * **Age intervals:** many HLD tables are abridged, so "age 20" may come from an interval covering 20-24. The matched interval is reported in `hld_age` and `hld_age_interval` (99 marks the open-ended top interval).
 
     * **Output**
-        * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/lost_years/data/hld/formats.pdf). For more information, check [HLD](https://www.lifetable.de/).
+        * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/data/hld/source/formats.pdf). For more information, check [HLD](https://www.lifetable.de/).
         * To make it easier to use, we normalize the column names.
 
 * **`lost_years_who`**: Joins to the WHO [life expectancy at birth](https://platform.who.int/mortality) indicator.
 
     * **Inputs:** `sex`, `year`, `country`. **There is no age input**: the packaged WHO table is indicator WHOSIS_000001, life expectancy *at birth*, and has no age dimension. The returned column is named `who_life_expectancy_at_birth` to say so, and passing an `age` mapping raises `ValueError` rather than being ignored. For remaining life expectancy at a given age, use `lost_years_hld`.
-    * **Matching:** the matched year is reported in `who_year`; the table covers 2000-2021 and a year more than `year_tolerance` (default 5) away returns nothing.
+    * **Matching:** the matched year is reported in `who_year`; the table covers 2000-2021 and a year outside it is answered from the nearest year, which `who_match_status` reports. Pass `year_tolerance` to refuse instead.
 
 ### Matching rules
 
 | | SSA | HLD | WHO |
 |---|---|---|---|
 | country | ignored (US only) | exact ISO-3, case-insensitive | exact ISO-3, case-insensitive |
-| year | nearest, within 5 years | period must contain the year | nearest, within 5 years |
+| year | nearest, distance reported | period must contain the year | nearest, distance reported |
 | age | nearest, within 1 year | the interval containing the age | not applicable |
 | missing input | returns nothing, with a reason | returns nothing, with a reason | returns nothing, with a reason |
 | rows out | one per input row | one per input row (more with `subpopulations=True`) | one per input row |
@@ -71,6 +78,9 @@ pip install lost-years
 The package provides three command-line tools:
 
 ```bash
+# Install the tables that are not shipped (HLD, WHO)
+lost_years update --source all
+
 # US data (SSA)
 lost_years_ssa input.csv -o output.csv
 
@@ -107,23 +117,25 @@ Please also look at the Jupyter notebook [example.ipynb](https://github.com/goji
 8  2014     MKD    6   F
 9  1997     LBN   49   F
 >>>
->>> lost_years_ssa(df)[['year', 'age', 'sex', 'ssa_age', 'ssa_year', 'ssa_life_expectancy']]
-   year  age sex  ssa_age  ssa_year  ssa_life_expectancy
-0  2003   80   M      NaN       NaN                  NaN
-1  2019    5   M      5.0    2022.0                70.29
-2  1999   62   F      NaN       NaN                  NaN
-3  2001    7   F      NaN       NaN                  NaN
-4  2006   57   F      NaN       NaN                  NaN
-5  2014   44   M      NaN       NaN                  NaN
-6  2004   34   F      NaN       NaN                  NaN
-7  2003   46   M      NaN       NaN                  NaN
-8  2014    6   F      NaN       NaN                  NaN
-9  1997   49   F      NaN       NaN                  NaN
+>>> cols = ['year', 'age', 'sex', 'ssa_age', 'ssa_year', 'ssa_life_expectancy',
+...         'ssa_match_status']
+>>> lost_years_ssa(df)[cols]
+   year  age sex  ssa_age  ssa_year  ssa_life_expectancy                                        ssa_match_status
+0  2003   80   M       80      2022                 8.11  ok: table year 2022 for requested 2003 (19 years away)
+1  2019    5   M        5      2022                70.29   ok: table year 2022 for requested 2019 (3 years away)
+2  1999   62   F       62      2022                22.50  ok: table year 2022 for requested 1999 (23 years away)
+3  2001    7   F        7      2022                73.69  ok: table year 2022 for requested 2001 (21 years away)
+4  2006   57   F       57      2022                26.63  ok: table year 2022 for requested 2006 (16 years away)
+5  2014   44   M       44      2022                34.19   ok: table year 2022 for requested 2014 (8 years away)
+6  2004   34   F       34      2022                47.47  ok: table year 2022 for requested 2004 (18 years away)
+7  2003   46   M       46      2022                32.46  ok: table year 2022 for requested 2003 (19 years away)
+8  2014    6   F        6      2022                74.68   ok: table year 2022 for requested 2014 (8 years away)
+9  1997   49   F       49      2022                33.63  ok: table year 2022 for requested 1997 (25 years away)
 ```
 
-Only 2019 is within five years of the one packaged SSA table; the rest say
-`closest available value 2022 is more than 5.0 from 2003` in `ssa_match_status`
-instead of quietly reporting the 2022 figure.
+Every row is answered from the one packaged table, and every row says how far
+that reach was. `lost_years_ssa(df, year_tolerance=5)` refuses the reach
+instead, leaving only 2019 with a figure.
 
 HLD matches on the period a life table actually covers, so a country-year no
 table covers returns nothing. `year_tolerance` reaches to the nearest period

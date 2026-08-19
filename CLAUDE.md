@@ -23,14 +23,23 @@
 **Current Status:** ✅ RESOLVED - WHO updater now produces proper country names and works perfectly with lost_years_who function.
 
 ## SSA Data Source Notes
-- Current data from 2022
-- Web scraping required from ssa.gov
-- Multiple fallback methods implemented (requests + Selenium)
+- The table is the Actuarial Life Table at
+  `https://www.ssa.gov/oact/STATS/table4c6.html`, not the
+  `HistEst/PerLifeTables/{year}/PerLifeTables{year}.html` landing page, which
+  holds no table at all -- only links to per-sex CSVs of the 1900-onwards
+  historical series.
+- ssa.gov's edge answers many automated clients with HTTP 403 regardless of
+  headers, so `lost_years update --source ssa` may be refused; `--from-file`
+  builds from a page saved in a browser.
+- Shipped release: 2022. Selenium is gone; the parse is `pandas.read_html`.
 
-## HLD Data Source Notes  
-- Requires manual download from lifetable.de
-- Most comprehensive international dataset
-- Site has anti-automation protection
+## HLD Data Source Notes
+- **Downloads fine with a plain GET.** The long-standing "manual download only"
+  note came from issuing `HEAD`, which lifetable.de answers with 405 while
+  answering `GET` with 200. `lost_years update --source hld` fetches it.
+- ~56 MB zip holding one bare CSV named `res`, 21 columns, ~2.3M rows.
+- Most comprehensive international dataset; not redistributed, because
+  lifetable.de asks that users download their own copy.
 
 ## WHO Data Update Success Summary
 
