@@ -7,38 +7,73 @@ import pytest
 
 from lost_years import lost_years_hld, lost_years_ssa, lost_years_who
 
+# SSA period life table, 2022, remaining years at exact age.
+SSA_2022 = {("M", 0): 74.74, ("F", 0): 80.18, ("M", 30): 46.51, ("F", 65): 20.12}
+
+# WHO indicator WHOSIS_000001, life expectancy at birth.
+WHO_AT_BIRTH = {("USA", 2019, "M"): 76.53, ("USA", 2019, "F"): 80.98}
+
 
 class TestLostYears:
     """Test class for lost_years functions."""
 
     @pytest.fixture
     def sample_data(self):
-        """Load sample data for testing."""
+        """Load sample data for testing.
+
+        Returns:
+            The packaged ten-row example input.
+        """
         return pd.read_csv("tests/input.csv")
 
-    def test_lost_years_ssa(self, sample_data):
-        """Test SSA lost years calculation."""
+    @pytest.mark.parametrize(("sex", "age"), sorted(SSA_2022))
+    def test_lost_years_ssa_values(self, sex, age):
+        """SSA returns the published 2022 period life table figures."""
+        df = pd.DataFrame({"age": [age], "sex": [sex], "year": [2022]})
+        row = lost_years_ssa(df).iloc[0]
+        assert row["ssa_match_status"] == "ok"
+        assert row["ssa_year"] == 2022
+        assert row["ssa_age"] == age
+        assert row["ssa_life_expectancy"] == SSA_2022[(sex, age)]
+
+    def test_lost_years_ssa_shape(self, sample_data):
+        """One output row per input row, with the match status attached."""
         result = lost_years_ssa(sample_data)
         assert "ssa_life_expectancy" in result.columns
-        assert result.iloc[0].ssa_year >= 2004  # SSA data updated
+        assert len(result) == len(sample_data)
+        assert "ssa_match_status" in result.columns
 
     def test_lost_years_hld(self, sample_data):
-        """Test HLD lost years calculation."""
+        """HLD appends its columns without changing the number of rows."""
         result = lost_years_hld(sample_data)
-        # HLD requires an external data file, so the call may return the input
-        # unchanged when it is not available.
-        if "hld_life_expectancy" in result.columns:
-            assert "hld_life_expectancy" in result.columns
-            assert "hld_year" in result.columns
-        else:
-            # No HLD data available - function should return original data unchanged
-            assert result.shape == sample_data.shape
+        assert "hld_life_expectancy" in result.columns
+        assert "hld_year1" in result.columns
+        assert "hld_age_interval" in result.columns
+        assert len(result) == len(sample_data)
 
-    def test_lost_years_who(self, sample_data):
-        """Test WHO lost years calculation."""
+    @pytest.mark.parametrize(("country", "year", "sex"), sorted(WHO_AT_BIRTH))
+    def test_lost_years_who_values(self, country, year, sex):
+        """WHO returns life expectancy at birth for the requested year."""
+        df = pd.DataFrame({"country": [country], "sex": [sex], "year": [year]})
+        row = lost_years_who(df).iloc[0]
+        assert row["who_match_status"] == "ok"
+        assert row["who_year"] == year
+        assert row["who_life_expectancy_at_birth"] == pytest.approx(
+            WHO_AT_BIRTH[(country, year, sex)], abs=0.005
+        )
+
+    def test_lost_years_who_names_its_column_for_what_it_holds(self, sample_data):
+        """The WHO table has no age dimension, and the column name says so."""
         result = lost_years_who(sample_data)
-        assert "who_life_expectancy" in result.columns
-        assert result.iloc[0].who_year >= 2003  # WHO data may be updated
+        assert "who_life_expectancy_at_birth" in result.columns
+        assert "who_life_expectancy" not in result.columns
+        assert "who_age" not in result.columns
+
+    def test_lost_years_who_refuses_an_age_mapping(self, sample_data):
+        """Asking WHO an age-specific question raises instead of ignoring it."""
+        cols = {"country": "country", "age": "age", "sex": "sex", "year": "year"}
+        with pytest.raises(ValueError, match="life expectancy at birth"):
+            lost_years_who(sample_data, cols=cols)
 
 
 class TestErrorHandling:
@@ -90,25 +125,18 @@ class TestErrorHandling:
             {
                 "person_age": [25, 30, 40],
                 "gender": ["M", "F", "M"],
-                "birth_year": [2000, 2005, 2010],
+                "birth_year": [2020, 2020, 2020],
                 "nation": ["USA", "CAN", "MEX"],
             }
         )
 
-        # Test SSA with custom mapping
         cols_ssa = {"age": "person_age", "sex": "gender", "year": "birth_year"}
         result_ssa = lost_years_ssa(df_custom, cols=cols_ssa)
-        assert isinstance(result_ssa, pd.DataFrame)
+        assert list(result_ssa["ssa_match_status"]) == ["ok"] * 3
 
-        # Test WHO with custom mapping
-        cols_who = {
-            "age": "person_age",
-            "sex": "gender",
-            "year": "birth_year",
-            "country": "nation",
-        }
+        cols_who = {"sex": "gender", "year": "birth_year", "country": "nation"}
         result_who = lost_years_who(df_custom, cols=cols_who)
-        assert isinstance(result_who, pd.DataFrame)
+        assert list(result_who["who_match_status"]) == ["ok"] * 3
 
     def test_invalid_column_mapping(self, caplog):
         """Test with invalid column mapping."""
@@ -130,53 +158,68 @@ class TestDataValidation:
     """Test data validation and edge cases."""
 
     def test_edge_case_ages(self):
-        """Test with boundary age values."""
+        """Ages the table covers resolve; ages past its top do not."""
         df_edge_ages = pd.DataFrame(
             {
-                "age": [0, 1, 99, 100],
+                "age": [0, 1, 119, 200],
                 "sex": ["M", "F", "M", "F"],
-                "year": [2020, 2020, 2020, 2020],
-                "country": ["USA", "USA", "USA", "USA"],
+                "year": [2022] * 4,
+                "country": ["USA"] * 4,
             }
         )
-
-        # Functions should handle edge ages gracefully
         result_ssa = lost_years_ssa(df_edge_ages)
-        result_who = lost_years_who(df_edge_ages)
+        assert list(result_ssa["ssa_match_status"])[:3] == ["ok"] * 3
+        assert pd.isna(result_ssa["ssa_life_expectancy"].iloc[3])
 
-        assert isinstance(result_ssa, pd.DataFrame)
-        assert isinstance(result_who, pd.DataFrame)
+    def test_missing_age_does_not_return_life_expectancy_at_birth(self):
+        """`abs(x - nan)` is nan, which used to make a missing age mean age 0."""
+        df = pd.DataFrame(
+            {"age": [float("nan")], "sex": ["M"], "year": [2022], "country": ["USA"]}
+        )
+        row = lost_years_ssa(df).iloc[0]
+        assert pd.isna(row["ssa_life_expectancy"])
+        assert row["ssa_life_expectancy"] != SSA_2022[("M", 0)]
+        assert row["ssa_match_status"] == "cannot match a missing value"
 
     def test_different_sex_formats(self):
-        """Test with different sex/gender format variations."""
-        # Test various sex code formats
+        """Male tokens map to MLE; everything else falls to FMLE."""
         df_sex_variants = pd.DataFrame(
             {
-                "age": [25, 30, 35, 40],
-                "sex": ["Male", "Female", "1", "0"],  # Different formats
-                "year": [2020, 2020, 2020, 2020],
-                "country": ["USA", "USA", "USA", "USA"],
+                "sex": ["Male", "Female", "1", "m"],
+                "year": [2019] * 4,
+                "country": ["USA"] * 4,
             }
         )
-
-        # Should handle different sex formats
         result_who = lost_years_who(df_sex_variants)
-        assert isinstance(result_who, pd.DataFrame)
+        assert list(result_who["who_sex"]) == ["MLE", "FMLE", "MLE", "MLE"]
 
     def test_old_and_future_years(self):
-        """Test with very old and future years."""
+        """Years far from the packaged tables return nothing, and say why."""
         df_edge_years = pd.DataFrame(
             {
                 "age": [25, 30, 35],
                 "sex": ["M", "F", "M"],
-                "year": [1900, 2030, 1950],  # Edge case years
-                "country": ["USA", "CAN", "MEX"],
+                "year": [1900, 2500, 2019],
+                "country": ["USA", "USA", "USA"],
             }
         )
 
-        # Should handle edge case years gracefully
         result_ssa = lost_years_ssa(df_edge_years)
-        result_who = lost_years_who(df_edge_years)
+        assert result_ssa["ssa_life_expectancy"].isna().tolist() == [True, True, False]
+        assert "more than 5.0 from 1900" in result_ssa["ssa_match_status"].iloc[0]
+        assert "more than 5.0 from 2500" in result_ssa["ssa_match_status"].iloc[1]
+        # 2019 is inside the tolerance, so the 2022 table answers it.
+        assert result_ssa["ssa_year"].iloc[2] == 2022
 
-        assert isinstance(result_ssa, pd.DataFrame)
-        assert isinstance(result_who, pd.DataFrame)
+        result_who = lost_years_who(df_edge_years)
+        expectancies = result_who["who_life_expectancy_at_birth"]
+        assert pd.isna(expectancies.iloc[0])
+        assert pd.isna(expectancies.iloc[1])
+        assert expectancies.iloc[2] == pytest.approx(76.53, abs=0.005)
+
+    def test_tolerance_can_be_widened_explicitly(self):
+        """The refusal is a default, not a wall: widening it is a visible choice."""
+        df = pd.DataFrame({"age": [30], "sex": ["M"], "year": [1900]})
+        row = lost_years_ssa(df, year_tolerance=None).iloc[0]
+        assert row["ssa_year"] == 2022
+        assert row["ssa_life_expectancy"] == SSA_2022[("M", 30)]

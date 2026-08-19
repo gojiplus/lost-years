@@ -1,10 +1,19 @@
-"""WHO (World Health Organization) life expectancy tables for lost_years."""
+"""WHO (World Health Organization) life expectancy tables for lost_years.
+
+The packaged WHO table is indicator WHOSIS_000001, *life expectancy at birth*.
+It has no age dimension: one value per country, year and sex. The lookup
+therefore answers questions about age 0 only, and says so in the name of the
+column it returns. Asking it for remaining life expectancy at a given age is a
+question it cannot answer, so an explicit ``age`` mapping raises instead of
+being quietly ignored; use :func:`lost_years.lost_years_hld` for that.
+"""
 
 import argparse
 import logging
 import re
 import sys
 from importlib.resources import files
+from typing import Any
 
 import pandas as pd
 
@@ -15,6 +24,19 @@ logger = logging.getLogger(__name__)
 
 WHO_DATA = files("lost_years") / "data" / "who" / "who.csv.gz"
 WHO_COLS = ["country_code", "year", "sex_code", "life_expectancy", "low_ci", "high_ci"]
+
+# The packaged table covers 2000-2021. Life expectancy at birth normally moves
+# 0.1-0.3 years per calendar year, so a five-year reach costs well under a
+# year; past it the table stops being an answer to the question that was asked.
+WHO_YEAR_TOLERANCE = 5.0
+
+WHO_OUTPUT_COLS = [
+    "who_country",
+    "who_sex",
+    "who_year",
+    "who_life_expectancy_at_birth",
+    "who_match_status",
+]
 
 
 class LostYearsWHOData:
@@ -27,25 +49,44 @@ class LostYearsWHOData:
 
     @classmethod
     def lost_years_who(
-        cls, df: pd.DataFrame, cols: dict[str, str] | None = None
+        cls,
+        df: pd.DataFrame,
+        cols: dict[str, str] | None = None,
+        year_tolerance: float | None = WHO_YEAR_TOLERANCE,
     ) -> pd.DataFrame:
-        """Append WHO life expectancy to the input DataFrame.
+        """Append WHO life expectancy at birth to the input DataFrame.
 
-        Matches each row on country, age, sex and year using the column names
-        given by ``cols``.
+        Matches each row on country, sex and year using the column names given
+        by ``cols``. There is deliberately no age dimension: the packaged WHO
+        indicator is life expectancy *at birth*, so the returned column is
+        named for what it holds and an ``age`` mapping is refused.
 
         Args:
             df: Pandas DataFrame containing the input data.
-            cols: Column mapping for country, age, sex, and year in DataFrame.
-                None for default mapping: {'country': 'country', 'age': 'age',
+            cols: Column mapping for country, sex, and year in DataFrame.
+                None for default mapping: {'country': 'country',
                 'sex': 'sex', 'year': 'year'}.
+            year_tolerance: How far, in calendar years, the match may sit from
+                the requested year. None accepts any distance.
 
         Returns:
             Pandas DataFrame with WHO data columns:
-                'who_country', 'who_age', 'who_sex', 'who_year', ...
+                'who_country', 'who_sex', 'who_year',
+                'who_life_expectancy_at_birth', 'who_match_status'.
+
+        Raises:
+            ValueError: If ``cols`` maps an ``age`` column. The WHO table
+                cannot answer an age-specific question.
         """
+        if cols is not None and "age" in cols:
+            raise ValueError(
+                "the packaged WHO table is life expectancy at birth and has no "
+                "age dimension; drop the 'age' mapping, or use lost_years_hld "
+                "for remaining life expectancy at a given age"
+            )
+
         df_cols = {}
-        for col in ["country", "age", "sex", "year"]:
+        for col in ["country", "sex", "year"]:
             tcol = col if cols is None else cols[col]
             if tcol not in df.columns:
                 logger.warning("No column `%s` in the DataFrame", tcol)
@@ -53,41 +94,60 @@ class LostYearsWHOData:
             df_cols[col] = tcol
 
         if cls.__df is None:
-            cls.__df = pd.read_csv(str(WHO_DATA), compression="gzip")
-            # Data is already clean with schema-compliant columns
-            # Add age column (WHO data is life expectancy at birth)
-            cls.__df["age"] = 1  # Life expectancy at birth maps to age 1 for lookup
-            # Rename for consistency with existing interface
-            cls.__df = cls.__df.rename(
+            cls.__df = pd.read_csv(str(WHO_DATA), compression="gzip").rename(
                 columns={"country_code": "country", "sex_code": "sex"}
             )
 
-        # Create a working copy to avoid modifying the original DataFrame
-        df_work = df.copy()
+        years = cls.__df["year"].unique()
+        records = []
+        for _, r in df.iterrows():
+            sex_in = str(r[df_cols["sex"]]).strip().lower()
+            sex = "MLE" if sex_in in ("m", "male", "mle", "1") else "FMLE"
+            country = str(r[df_cols["country"]]).strip().upper()
+            try:
+                year = closest(years, r[df_cols["year"]], tolerance=year_tolerance)
+            except ValueError as exc:
+                logger.warning("No WHO match: %s", exc)
+                records.append(cls.__no_match(str(exc)))
+                continue
+            sdf = cls.__df[
+                (cls.__df["country"].str.upper() == country)
+                & (cls.__df["sex"] == sex)
+                & (cls.__df["year"] == year)
+            ]
+            if sdf.empty:
+                records.append(cls.__no_match("no WHO row for country, sex and year"))
+                continue
+            best = sdf.iloc[0]
+            records.append(
+                {
+                    "who_country": best["country"],
+                    "who_sex": best["sex"],
+                    "who_year": int(best["year"]),
+                    "who_life_expectancy_at_birth": float(best["life_expectancy"]),
+                    "who_match_status": "ok",
+                }
+            )
 
-        # Create normalized sex column for lookup
-        df_work["__normalized_sex"] = df_work[df_cols["sex"]].apply(
-            lambda c: "MLE" if c.lower() in ["m", "male", "mle"] else "FMLE"
-        )
+        result = df.copy()
+        appended = pd.DataFrame(records, columns=WHO_OUTPUT_COLS)
+        for col in WHO_OUTPUT_COLS:
+            result[col] = appended[col].to_numpy() if records else None
+        return result
 
-        out_df = pd.DataFrame()
-        for i, r in df_work.iterrows():
-            sdf = cls.__df
-            for c in ["country", "age", "year"]:
-                if sdf[c].dtype in ["int32", "int64", "float64"]:
-                    sdf = sdf[sdf[c] == closest(sdf[c].unique(), r[df_cols[c]])]
-                else:
-                    sdf = sdf[sdf[c].str.lower() == r[df_cols[c]].lower()]
-            # Handle sex column separately using normalized value
-            sdf = sdf[sdf["sex"].str.lower() == r["__normalized_sex"].lower()]
+    @classmethod
+    def __no_match(cls, status: str) -> dict[str, Any]:
+        """Build an all-missing WHO output record.
 
-            # Select relevant columns and rename for output
-            odf = sdf[["age", "country", "sex", "year", "life_expectancy"]].copy()
-            odf["index"] = i  # type: ignore[call-overload]
-            out_df = pd.concat([out_df, odf])
-        out_df.set_index("index", drop=True, inplace=True)
-        out_df.columns = ["who_" + c for c in out_df.columns]
-        return df.join(out_df)
+        Args:
+            status: Why no life expectancy could be returned.
+
+        Returns:
+            Mapping of output column name to value.
+        """
+        record: dict[str, Any] = dict.fromkeys(WHO_OUTPUT_COLS)
+        record["who_match_status"] = status
+        return record
 
     @classmethod
     def convert_agegroup(cls, ag: str) -> int:
@@ -123,7 +183,7 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
     Returns:
         0 on success, -1 when a required column is missing.
     """
-    title = "Appends Lost Years data column(s) by country, age, sex and year"
+    title = "Appends WHO life expectancy at birth by country, sex and year"
     parser = argparse.ArgumentParser(description=title)
     parser.add_argument("input", default=None, help="Input file")
     parser.add_argument(
@@ -131,12 +191,6 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
         "--country",
         default="country",
         help="Columns name of country in the input file(default=`country`)",
-    )
-    parser.add_argument(
-        "-a",
-        "--age",
-        default="age",
-        help="Columns name of age in the input file(default=`age`)",
     )
     parser.add_argument(
         "-s",
@@ -163,27 +217,15 @@ def main(argv: list[str] = sys.argv[1:]) -> int:
 
     df = pd.read_csv(args.input)
 
-    if not column_exists(df, args.country):
-        logger.error("Column: `%s` not found in the input file", args.country)
-        return -1
-
-    if not column_exists(df, args.age):
-        logger.error("Column: `%s` not found in the input file", args.age)
-        return -1
-
-    if not column_exists(df, args.sex):
-        logger.error("Column: `%s` not found in the input file", args.sex)
-        return -1
-
-    if not column_exists(df, args.year):
-        logger.error("Column: `%s` not found in the input file", args.year)
-        return -1
+    for col_arg in (args.country, args.sex, args.year):
+        if not column_exists(df, col_arg):
+            logger.error("Column: `%s` not found in the input file", col_arg)
+            return -1
 
     rdf = lost_years_who(
         df,
         cols={
             "country": args.country,
-            "age": args.age,
             "sex": args.sex,
             "year": args.year,
         },

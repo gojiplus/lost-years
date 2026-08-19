@@ -33,6 +33,20 @@ The coronavirus examples show real-world applications analyzing the impact of CO
 
 These examples use real COVID-19 mortality data to demonstrate practical applications of the lost years calculations.
 
+```{warning}
+The three COVID-19 notebooks were written against an earlier lookup contract
+and their committed outputs predate the correctness fixes described in the
+[data dictionary](data-dictionary.md). Their `lost_years_who` cells pass an
+`age` mapping, which now raises: the packaged WHO indicator is life expectancy
+at birth and never had an age dimension, so those cells were reporting
+at-birth figures as if they were remaining years at a given age. Their
+`lost_years_hld` cells relied on the old, unflagged snap to the nearest
+`Year1`, which for China reaches back to the 1981 life table. Re-running these
+analyses means redoing them, not re-executing them; the numbers they report
+should be treated as provisional until that happens. `examples/example` is
+current.
+```
+
 ## Data Sources
 
 The examples use data from:
