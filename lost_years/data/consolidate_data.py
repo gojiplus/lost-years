@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Data consolidation script for lost_years package.
+"""Data consolidation script for lost_years package.
 
 This script consolidates multiple data files per source into single,
 schema-compliant files and removes unnecessary backup/duplicate files.
@@ -13,7 +12,9 @@ from pathlib import Path
 import pandas as pd
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent
@@ -31,7 +32,9 @@ def consolidate_ssa_data():
     # Use the main file (already current from our updates)
     if main_file.exists():
         df = pd.read_csv(main_file)
-        logger.info(f"Main SSA file has {len(df)} rows covering year {df['year'].iloc[0]}")
+        logger.info(
+            "Main SSA file has %s rows covering year %s", len(df), df["year"].iloc[0]
+        )
 
         # Clean up extra files
         files_to_remove = []
@@ -40,7 +43,7 @@ def consolidate_ssa_data():
             df_new = pd.read_csv(new_file)
             if len(df_new) >= len(df):  # New file is at least as good
                 shutil.copy2(new_file, main_file)
-                logger.info(f"Updated main file with newer data ({len(df_new)} rows)")
+                logger.info("Updated main file with newer data (%s rows)", len(df_new))
                 files_to_remove.append(new_file)
             else:
                 files_to_remove.append(new_file)
@@ -51,7 +54,7 @@ def consolidate_ssa_data():
         # Remove duplicate files
         for file_to_remove in files_to_remove:
             file_to_remove.unlink()
-            logger.info(f"Removed duplicate file: {file_to_remove.name}")
+            logger.info("Removed duplicate file: %s", file_to_remove.name)
 
         return main_file
 
@@ -70,7 +73,7 @@ def consolidate_who_data():
     if main_file.exists():
         # Load raw WHO data
         df = pd.read_csv(main_file, compression="gzip")
-        logger.info(f"Raw WHO data: {len(df)} rows, {len(df.columns)} columns")
+        logger.info("Raw WHO data: %s rows, %s columns", len(df), len(df.columns))
 
         # Map to clean schema
         clean_df = pd.DataFrame(
@@ -86,19 +89,21 @@ def consolidate_who_data():
         )
 
         # Clean data
-        clean_df = clean_df.dropna(subset=["country_code", "year", "sex_code", "life_expectancy"])
+        clean_df = clean_df.dropna(
+            subset=["country_code", "year", "sex_code", "life_expectancy"]
+        )
         clean_df = clean_df[clean_df["life_expectancy"] > 0]  # Remove invalid values
 
         # Save clean version
         clean_df.to_csv(clean_file, compression="gzip", index=False)
-        logger.info(f"Created clean WHO file: {len(clean_df)} rows")
-        logger.info(f"Years: {clean_df['year'].min()}-{clean_df['year'].max()}")
-        logger.info(f"Countries: {clean_df['country_code'].nunique()}")
+        logger.info("Created clean WHO file: %s rows", len(clean_df))
+        logger.info("Years: %s-%s", clean_df["year"].min(), clean_df["year"].max())
+        logger.info("Countries: %s", clean_df["country_code"].nunique())
 
         # Clean up old files
         if backup_file.exists():
             backup_file.unlink()
-            logger.info(f"Removed backup file: {backup_file.name}")
+            logger.info("Removed backup file: %s", backup_file.name)
 
         # Keep the raw file for now, but primary is the clean one
         return clean_file
@@ -141,13 +146,13 @@ def clean_extra_files():
     html_files = list(DATA_DIR.rglob("*.html"))
     for html_file in html_files:
         html_file.unlink()
-        logger.info(f"Removed HTML file: {html_file}")
+        logger.info("Removed HTML file: %s", html_file)
 
     # Remove HTML asset directories
     html_dirs = [d for d in DATA_DIR.rglob("*_files") if d.is_dir()]
     for html_dir in html_dirs:
         shutil.rmtree(html_dir)
-        logger.info(f"Removed HTML assets: {html_dir}")
+        logger.info("Removed HTML assets: %s", html_dir)
 
     # Remove old translation files (keep newer schema)
     old_files = ["who_translation.csv", "hld_translation.csv"]
@@ -155,7 +160,7 @@ def clean_extra_files():
         file_path = DATA_DIR.rglob(old_file)
         for fp in file_path:
             fp.unlink()
-            logger.info(f"Removed old file: {fp}")
+            logger.info("Removed old file: %s", fp)
 
 
 def main():
@@ -184,16 +189,16 @@ def main():
                 df = pd.read_csv(file_path, compression="gzip")
             else:
                 df = pd.read_csv(file_path)
-            logger.info(f"{source:>3}: ✅ {file_path.name} ({len(df)} rows)")
+            logger.info("%3s: ✅ %s (%s rows)", source, file_path.name, len(df))
         else:
-            logger.info(f"{source:>3}: ❌ No data file")
+            logger.info("%3s: ❌ No data file", source)
 
     logger.info("\nFinal data structure:")
 
     def log_directory_tree(path: Path, level: int = 0):
         """Recursively log directory tree structure."""
         indent = " " * 2 * level
-        logger.info(f"{indent}{path.name}/")
+        logger.info("%s%s/", indent, path.name)
         subindent = " " * 2 * (level + 1)
 
         # Sort items: directories first, then files
@@ -202,7 +207,7 @@ def main():
             if item.is_dir():
                 log_directory_tree(item, level + 1)
             else:
-                logger.info(f"{subindent}{item.name}")
+                logger.info("%s%s", subindent, item.name)
 
     log_directory_tree(DATA_DIR)
 

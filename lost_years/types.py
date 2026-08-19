@@ -25,7 +25,12 @@ class ColumnConfig:
 
     def to_dict(self) -> ColumnMapping:
         """Convert to dictionary format for backwards compatibility."""
-        return {"age": self.age, "sex": self.sex, "year": self.year, "country": self.country}
+        return {
+            "age": self.age,
+            "sex": self.sex,
+            "year": self.year,
+            "country": self.country,
+        }
 
 
 @dataclass(slots=True, frozen=True)

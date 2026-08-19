@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Data schemas for lost_years package data sources.
+"""Data schemas for lost_years package data sources.
 
 This module defines the expected schema for each data source:
 - SSA: US Social Security Administration life tables
@@ -9,7 +8,7 @@ This module defines the expected schema for each data source:
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -23,7 +22,7 @@ class SSASchema:
     """
 
     # Required columns
-    REQUIRED_COLUMNS = [
+    REQUIRED_COLUMNS: ClassVar[list[str]] = [
         "age",  # int: Exact age (0-119)
         "male_death_prob",  # float: Male death probability q(x)
         "male_n_lives",  # float: Male number of lives l(x)
@@ -35,7 +34,7 @@ class SSASchema:
     ]
 
     # Data types
-    DTYPES = {
+    DTYPES: ClassVar[dict[str, str]] = {
         "age": "int32",
         "male_death_prob": "float64",
         "male_n_lives": "float64",
@@ -65,15 +64,21 @@ class SSASchema:
 
         # Check age range
         if "age" in df.columns:
-            invalid_ages = df[(df["age"] < cls.AGE_RANGE[0]) | (df["age"] > cls.AGE_RANGE[1])]
+            invalid_ages = df[
+                (df["age"] < cls.AGE_RANGE[0]) | (df["age"] > cls.AGE_RANGE[1])
+            ]
             if not invalid_ages.empty:
                 issues.append(f"Invalid ages: {invalid_ages['age'].tolist()}")
 
         # Check year range
         if "year" in df.columns:
-            invalid_years = df[(df["year"] < cls.YEAR_RANGE[0]) | (df["year"] > cls.YEAR_RANGE[1])]
+            invalid_years = df[
+                (df["year"] < cls.YEAR_RANGE[0]) | (df["year"] > cls.YEAR_RANGE[1])
+            ]
             if not invalid_years.empty:
-                issues.append(f"Invalid years: {invalid_years['year'].unique().tolist()}")
+                issues.append(
+                    f"Invalid years: {invalid_years['year'].unique().tolist()}"
+                )
 
         return {
             "valid": len(issues) == 0,
@@ -92,7 +97,7 @@ class WHOSchema:
     """
 
     # Required columns (simplified from WHO API response)
-    REQUIRED_COLUMNS = [
+    REQUIRED_COLUMNS: ClassVar[list[str]] = [
         "country_code",  # str: 3-letter ISO country code (e.g., 'USA')
         "country_name",  # str: Country display name
         "year",  # int: Data year
@@ -103,7 +108,7 @@ class WHOSchema:
     ]
 
     # Data types
-    DTYPES = {
+    DTYPES: ClassVar[dict[str, str]] = {
         "country_code": "string",
         "country_name": "string",
         "year": "int32",
@@ -116,7 +121,8 @@ class WHOSchema:
     # Validation rules
     YEAR_RANGE = (1990, 2030)  # WHO data year range
     LE_RANGE = (20.0, 90.0)  # Reasonable life expectancy range
-    VALID_SEX_CODES = {"MLE", "FMLE", "BTSX"}  # Male, Female, Both sexes
+    # Male, Female, Both sexes
+    VALID_SEX_CODES: ClassVar[set[str]] = {"MLE", "FMLE", "BTSX"}
 
     @classmethod
     def validate(cls, df: pd.DataFrame) -> dict[str, Any]:
@@ -148,8 +154,12 @@ class WHOSchema:
             "issues": issues,
             "row_count": len(df),
             "column_count": len(df.columns),
-            "countries": df["country_code"].nunique() if "country_code" in df.columns else 0,
-            "years": sorted(df["year"].unique().tolist()) if "year" in df.columns else [],
+            "countries": df["country_code"].nunique()
+            if "country_code" in df.columns
+            else 0,
+            "years": sorted(df["year"].unique().tolist())
+            if "year" in df.columns
+            else [],
         }
 
 
@@ -162,7 +172,7 @@ class HLDSchema:
     """
 
     # Required columns (subset of 21 total columns)
-    REQUIRED_COLUMNS = [
+    REQUIRED_COLUMNS: ClassVar[list[str]] = [
         "Country",  # str: 3-letter country code
         "Year1",  # int: Data year
         "Sex",  # int: Sex code (1=Male, 2=Female)
@@ -174,7 +184,7 @@ class HLDSchema:
     ]
 
     # Data types
-    DTYPES = {
+    DTYPES: ClassVar[dict[str, str]] = {
         "Country": "string",
         "Year1": "int32",
         "Sex": "int32",
@@ -188,7 +198,7 @@ class HLDSchema:
     # Validation rules
     YEAR_RANGE = (1750, 2030)  # Historical range
     AGE_RANGE = (0, 111)  # Age range
-    SEX_CODES = {1, 2}  # 1=Male, 2=Female
+    SEX_CODES: ClassVar[set[int]] = {1, 2}  # 1=Male, 2=Female
     LE_RANGE = (0.0, 100.0)  # Life expectancy range
 
     @classmethod
@@ -198,7 +208,9 @@ class HLDSchema:
 
         # Check required columns (allow subset)
         available_required = [col for col in cls.REQUIRED_COLUMNS if col in df.columns]
-        if len(available_required) < 4:  # Need at least country, year, sex, life expectancy
+        if (
+            len(available_required) < 4
+        ):  # Need at least country, year, sex, life expectancy
             issues.append(f"Too few required columns. Found: {available_required}")
 
         # Check sex codes
@@ -209,7 +221,9 @@ class HLDSchema:
 
         # Check life expectancy range
         if "e(x)" in df.columns:
-            invalid_le = df[(df["e(x)"] < cls.LE_RANGE[0]) | (df["e(x)"] > cls.LE_RANGE[1])]
+            invalid_le = df[
+                (df["e(x)"] < cls.LE_RANGE[0]) | (df["e(x)"] > cls.LE_RANGE[1])
+            ]
             if not invalid_le.empty:
                 issues.append(f"Invalid life expectancy values: {len(invalid_le)} rows")
 
@@ -219,7 +233,9 @@ class HLDSchema:
             "row_count": len(df),
             "column_count": len(df.columns),
             "countries": df["Country"].nunique() if "Country" in df.columns else 0,
-            "years": sorted(df["Year1"].unique().tolist()) if "Year1" in df.columns else [],
+            "years": sorted(df["Year1"].unique().tolist())
+            if "Year1" in df.columns
+            else [],
         }
 
 

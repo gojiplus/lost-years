@@ -25,7 +25,8 @@ class TestLostYears:
     def test_lost_years_hld(self, sample_data):
         """Test HLD lost years calculation."""
         result = lost_years_hld(sample_data)
-        # HLD requires external data file, so test may return original data if not available
+        # HLD requires an external data file, so the call may return the input
+        # unchanged when it is not available.
         if "hld_life_expectancy" in result.columns:
             assert "hld_life_expectancy" in result.columns
             assert "hld_year" in result.columns
@@ -100,7 +101,12 @@ class TestErrorHandling:
         assert isinstance(result_ssa, pd.DataFrame)
 
         # Test WHO with custom mapping
-        cols_who = {"age": "person_age", "sex": "gender", "year": "birth_year", "country": "nation"}
+        cols_who = {
+            "age": "person_age",
+            "sex": "gender",
+            "year": "birth_year",
+            "country": "nation",
+        }
         result_who = lost_years_who(df_custom, cols=cols_who)
         assert isinstance(result_who, pd.DataFrame)
 

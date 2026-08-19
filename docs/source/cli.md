@@ -112,7 +112,7 @@ lost_years_who input.csv -o output.csv
 ### Example 1: US Data
 
 Input file `us_deaths.csv`:
-```csv
+```text
 age,sex,year
 65,M,2020
 45,F,2019
@@ -127,7 +127,7 @@ lost_years_ssa us_deaths.csv -o us_deaths_with_life_exp.csv
 ### Example 2: International Comparison
 
 Input file `international.csv`:
-```csv
+```text
 country,age,sex,year
 BRA,65,M,2015
 CHE,65,M,2015
@@ -142,7 +142,7 @@ lost_years_hld international.csv -o comparison.csv
 ### Example 3: Custom Column Names
 
 Input file with non-standard column names:
-```csv
+```text
 nation,age_at_death,gender,death_year
 USA,70,M,2020
 ```

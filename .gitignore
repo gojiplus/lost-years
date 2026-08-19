@@ -68,6 +68,9 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/build/
+_site/
+_doctest/
 
 # PyBuilder
 target/
@@ -124,8 +127,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# uv
-uv.lock
+# uv.lock is committed: the shared CI syncs with --frozen for reproducible
+# runs, and the uv Dependabot ecosystem has nothing to update without it.
 
 # IDEs
 .vscode/

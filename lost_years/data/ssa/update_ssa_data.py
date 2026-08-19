@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""
-SSA Data Update Script
+"""SSA data update script.
+
 Scrapes updated SSA life table data from the SSA website.
 """
 
+import contextlib
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -20,7 +21,11 @@ try:
     from selenium.common.exceptions import TimeoutException
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support import expected_conditions as EC
+
+    # `as EC` is the alias selenium's own documentation and every example uses;
+    # renaming it to satisfy N812 would make this code harder to match against
+    # the upstream docs.
+    from selenium.webdriver.support import expected_conditions as EC  # noqa: N812
     from selenium.webdriver.support.ui import WebDriverWait
 
     SELENIUM_AVAILABLE = True
@@ -28,7 +33,9 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Base directory
@@ -39,6 +46,7 @@ class SSADataUpdater:
     """SSA data updater using web scraping."""
 
     def __init__(self):
+        """Open a browser-like HTTP session against ssa.gov."""
         self.session = requests.Session()
         user_agent = (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -58,12 +66,11 @@ class SSADataUpdater:
             if response.status_code == 200:
                 logger.info("Successfully retrieved SSA page")
                 return self.parse_ssa_html_table(response.text)
-            else:
-                logger.error(f"HTTP {response.status_code} from {url}")
-                return None
+            logger.error("HTTP %s from %s", response.status_code, url)
+            return None
 
         except Exception as e:
-            logger.error(f"Failed to fetch from {url}: {e}")
+            logger.error("Failed to fetch from %s: %s", url, e)
             return None
 
     def parse_ssa_html_table(self, html_content):
@@ -79,21 +86,23 @@ class SSADataUpdater:
             logger.error("No tables found in HTML content")
             return None
 
-        logger.info(f"Found {len(tables)} table(s) in HTML")
+        logger.info("Found %s table(s) in HTML", len(tables))
 
         # Find the table with life expectancy data
         target_table = None
         for i, table in enumerate(tables):
             headers = table.find_all(["th", "td"])
-            header_text = " ".join([h.get_text().strip() for h in headers[:20]])  # Get more text
-            logger.info(f"Table {i} header text: {header_text[:200]}...")
+            header_text = " ".join(
+                [h.get_text().strip() for h in headers[:20]]
+            )  # Get more text
+            logger.info("Table %s header text: %s...", i, header_text[:200])
 
             if any(
                 keyword in header_text.lower()
                 for keyword in ["age", "male", "female", "life expectancy"]
             ):
                 target_table = table
-                logger.info(f"Selected table {i} as target")
+                logger.info("Selected table %s as target", i)
                 break
 
         if not target_table:
@@ -104,7 +113,7 @@ class SSADataUpdater:
         rows = target_table.find_all("tr")
         data = []
 
-        logger.info(f"Found {len(rows)} rows in target table")
+        logger.info("Found %s rows in target table", len(rows))
 
         for i, row in enumerate(rows):
             cells = row.find_all(["td", "th"])
@@ -114,13 +123,13 @@ class SSADataUpdater:
 
                 # Log first few rows for debugging
                 if i < 5:
-                    logger.info(f"Row {i}: {cell_text}")
+                    logger.info("Row %s: %s", i, cell_text)
 
         if not data:
             logger.error("No data rows found in table")
             return None
 
-        logger.info(f"Extracted {len(data)} rows from HTML table")
+        logger.info("Extracted %s rows from HTML table", len(data))
         return self.process_scraped_data(data)
 
     def process_scraped_data(self, raw_data):
@@ -136,14 +145,16 @@ class SSADataUpdater:
                 break
 
         if header_row is None:
-            logger.warning("Could not find header row, assuming first row contains headers")
+            logger.warning(
+                "Could not find header row, assuming first row contains headers"
+            )
             header_row = 0
 
         headers = [h.strip() for h in raw_data[header_row]]
         data_rows = raw_data[header_row + 1 :]
 
-        logger.info(f"Found headers: {headers}")
-        logger.info(f"Processing {len(data_rows)} data rows")
+        logger.info("Found headers: %s", headers)
+        logger.info("Processing %s data rows", len(data_rows))
 
         # Create DataFrame - handle column mismatch
         if data_rows:
@@ -151,7 +162,9 @@ class SSADataUpdater:
             # Ensure headers match the data columns
             if len(headers) != max_cols:
                 logger.warning(
-                    f"Header count ({len(headers)}) != data columns ({max_cols}), adjusting..."
+                    "Header count (%s) != data columns (%s), adjusting...",
+                    len(headers),
+                    max_cols,
                 )
                 if max_cols > len(headers):
                     # Add generic column names for extra columns
@@ -180,13 +193,14 @@ class SSADataUpdater:
         """Standardize scraped data to match package format."""
         logger.info("Standardizing SSA data format...")
 
-        # Expected columns: age, male_death_prob, male_n_lives, male_life_expectancy,
-        #                  female_death_prob, female_n_lives, female_life_expectancy, year
+        # Expected columns: age, male_death_prob, male_n_lives,
+        # male_life_expectancy, female_death_prob, female_n_lives,
+        # female_life_expectancy, year
 
         # Map columns based on actual SSA table structure
         column_mapping = {}
 
-        logger.info(f"Available columns: {df.columns.tolist()}")
+        logger.info("Available columns: %s", df.columns.tolist())
 
         # Find age column
         for col in df.columns:
@@ -196,7 +210,8 @@ class SSADataUpdater:
                 break
 
         # Find male and female columns
-        # SSA tables typically have just "Male" and "Female" columns with life expectancy values
+        # SSA tables typically carry just "Male" and "Female" columns holding
+        # life expectancy values.
         for col in df.columns:
             col_lower = col.lower()
             if col_lower == "male":
@@ -209,15 +224,18 @@ class SSADataUpdater:
                 column_mapping["female_life_expectancy"] = col
 
         if len(column_mapping) < 3:
-            logger.error(f"Could not map required columns. Available: {df.columns.tolist()}")
+            logger.error(
+                "Could not map required columns. Available: %s", df.columns.tolist()
+            )
             return None
 
         # Map the correct columns based on the actual SSA table structure:
-        # Col 0: Age, Col 1: Male death prob, Col 2: Male lives, Col 3: Male life expectancy
-        # Col 4: Female death prob, Col 5: Female lives, Col 6: Female life expectancy
+        # Col 0: Age, Col 1: Male death prob, Col 2: Male lives,
+        # Col 3: Male life expectancy, Col 4: Female death prob,
+        # Col 5: Female lives, Col 6: Female life expectancy
 
         result_data = []
-        current_year = datetime.now().year  # Use current year for new data
+        current_year = datetime.now(tz=UTC).year  # Use current year for new data
 
         for _, row in df.iterrows():
             try:
@@ -226,14 +244,18 @@ class SSADataUpdater:
                     age_val = self.clean_numeric(row.iloc[0])
                     male_death_prob = self.clean_numeric(row.iloc[1])
                     male_n_lives = self.clean_numeric(row.iloc[2])
-                    male_le = self.clean_numeric(row.iloc[3])  # Column 3 is male life expectancy
+                    male_le = self.clean_numeric(
+                        row.iloc[3]
+                    )  # Column 3 is male life expectancy
                     female_death_prob = self.clean_numeric(row.iloc[4])
                     female_n_lives = self.clean_numeric(row.iloc[5])
                     female_le = self.clean_numeric(
                         row.iloc[6]
                     )  # Column 6 is female life expectancy
                 elif len(row) >= 3:  # Fallback for simpler structure
-                    age_val = self.clean_numeric(row.get(column_mapping.get("age", ""), ""))
+                    age_val = self.clean_numeric(
+                        row.get(column_mapping.get("age", ""), "")
+                    )
                     male_le = self.clean_numeric(
                         row.get(column_mapping.get("male_life_expectancy", ""), "")
                     )
@@ -247,12 +269,16 @@ class SSADataUpdater:
                 else:
                     continue
 
-                if age_val is not None and (male_le is not None or female_le is not None):
+                if age_val is not None and (
+                    male_le is not None or female_le is not None
+                ):
                     # Clean up comma-separated numbers
                     if male_n_lives and isinstance(male_n_lives, str):
                         male_n_lives = self.clean_numeric(male_n_lives.replace(",", ""))
                     if female_n_lives and isinstance(female_n_lives, str):
-                        female_n_lives = self.clean_numeric(female_n_lives.replace(",", ""))
+                        female_n_lives = self.clean_numeric(
+                            female_n_lives.replace(",", "")
+                        )
 
                     result_data.append(
                         {
@@ -267,7 +293,7 @@ class SSADataUpdater:
                         }
                     )
             except Exception as e:
-                logger.warning(f"Error processing row: {e}")
+                logger.warning("Error processing row: %s", e)
                 continue
 
         if not result_data:
@@ -275,7 +301,7 @@ class SSADataUpdater:
             return None
 
         result_df = pd.DataFrame(result_data)
-        logger.info(f"Standardized {len(result_df)} rows of SSA data")
+        logger.info("Standardized %s rows of SSA data", len(result_df))
         return result_df
 
     def clean_numeric(self, value):
@@ -316,10 +342,10 @@ class SSADataUpdater:
 
         for url in historical_urls:
             try:
-                logger.info(f"Trying historical URL: {url}")
+                logger.info("Trying historical URL: %s", url)
                 response = self.session.get(url, timeout=30)
                 if response.status_code == 200:
-                    logger.info(f"Successfully retrieved data from {url}")
+                    logger.info("Successfully retrieved data from %s", url)
                     result = self.parse_ssa_html_table(response.text)
                     if result is not None:
                         # Extract year from URL if possible
@@ -340,14 +366,14 @@ class SSADataUpdater:
                         if year_match and year_match >= 2018:
                             # Update the year in the result DataFrame
                             result["year"] = year_match
-                            logger.info(f"Updated data year to {year_match}")
+                            logger.info("Updated data year to %s", year_match)
 
                         return result
                 else:
-                    logger.warning(f"HTTP {response.status_code} from {url}")
+                    logger.warning("HTTP %s from %s", response.status_code, url)
 
             except Exception as e:
-                logger.warning(f"Failed to access {url}: {e}")
+                logger.warning("Failed to access %s: %s", url, e)
                 continue
 
         return None
@@ -355,7 +381,9 @@ class SSADataUpdater:
     def try_selenium_scraping(self):
         """Try using Selenium to bypass 403 errors."""
         if not SELENIUM_AVAILABLE:
-            logger.warning("Selenium not available - install with: pip install selenium")
+            logger.warning(
+                "Selenium not available - install with: pip install selenium"
+            )
             return None
 
         logger.info("Attempting to use Selenium for SSA data scraping...")
@@ -378,7 +406,8 @@ class SSADataUpdater:
             chrome_options.add_argument("--window-size=1920,1080")
             selenium_user_agent = (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/91.0.4472.124 Safari/537.36"
             )
             chrome_options.add_argument(f"--user-agent={selenium_user_agent}")
 
@@ -386,13 +415,15 @@ class SSADataUpdater:
             try:
                 driver = webdriver.Chrome(options=chrome_options)
             except Exception as e:
-                logger.warning(f"Could not create Chrome driver: {e}")
-                logger.info("Install ChromeDriver from: https://chromedriver.chromium.org/")
+                logger.warning("Could not create Chrome driver: %s", e)
+                logger.info(
+                    "Install ChromeDriver from: https://chromedriver.chromium.org/"
+                )
                 return None
 
             for url in selenium_urls:
                 try:
-                    logger.info(f"Selenium trying: {url}")
+                    logger.info("Selenium trying: %s", url)
                     driver.get(url)
 
                     # Wait for page to load
@@ -400,28 +431,35 @@ class SSADataUpdater:
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
 
-                    # Check for dropdown/select elements and iterate through recent options
+                    # Check for dropdown/select elements and iterate through
+                    # the recent options.
                     combined_data = []
                     try:
                         dropdowns = driver.find_elements(By.TAG_NAME, "select")
                         if dropdowns:
-                            logger.info(f"Found {len(dropdowns)} dropdown(s) on page")
+                            logger.info("Found %s dropdown(s) on page", len(dropdowns))
 
                             for i, dropdown in enumerate(dropdowns):
                                 options = dropdown.find_elements(By.TAG_NAME, "option")
                                 option_values = [opt.text for opt in options]
-                                logger.info(f"Dropdown {i}: {option_values}")
+                                logger.info("Dropdown %s: %s", i, option_values)
 
                                 # Try the most recent few years
-                                for j, option in enumerate(options[:3]):  # Get top 3 most recent
+                                for j, option in enumerate(
+                                    options[:3]
+                                ):  # Get top 3 most recent
                                     try:
-                                        logger.info(f"Selecting dropdown option: {option.text}")
+                                        logger.info(
+                                            "Selecting dropdown option: %s", option.text
+                                        )
                                         option.click()
                                         time.sleep(2)  # Wait for page to update
 
                                         # Wait for table to refresh
                                         WebDriverWait(driver, 10).until(
-                                            EC.presence_of_element_located((By.TAG_NAME, "table"))
+                                            EC.presence_of_element_located(
+                                                (By.TAG_NAME, "table")
+                                            )
                                         )
 
                                         # Get updated page source
@@ -429,28 +467,42 @@ class SSADataUpdater:
 
                                         if (
                                             "life table" in updated_page_source.lower()
-                                            or "life expectancy" in updated_page_source.lower()
+                                            or "life expectancy"
+                                            in updated_page_source.lower()
                                         ):
-                                            logger.info(f"Got data for option: {option.text}")
-                                            result = self.parse_ssa_html_table(updated_page_source)
+                                            logger.info(
+                                                "Got data for option: %s", option.text
+                                            )
+                                            result = self.parse_ssa_html_table(
+                                                updated_page_source
+                                            )
 
                                             if result is not None:
                                                 # Extract year from option text
-                                                year_match = re.search(r"(\d{4})", option.text)
+                                                year_match = re.search(
+                                                    r"(\d{4})", option.text
+                                                )
                                                 if year_match:
                                                     year = int(year_match.group(1))
                                                     result["year"] = year
-                                                    logger.info(f"Set data year to {year}")
+                                                    logger.info(
+                                                        "Set data year to %s", year
+                                                    )
 
                                                 combined_data.append(result)
 
-                                                # Use the first successful result for now
-                                                if j == 0:  # Return the most recent year's data
+                                                # Use the first successful
+                                                # result for now.
+                                                if (
+                                                    j == 0
+                                                ):  # Return the most recent year's data
                                                     return result
 
                                     except Exception as e:
                                         logger.warning(
-                                            f"Error with dropdown option {option.text}: {e}"
+                                            "Error with dropdown option %s: %s",
+                                            option.text,
+                                            e,
                                         )
                                         continue
 
@@ -470,7 +522,10 @@ class SSADataUpdater:
                                 "life table" in page_source.lower()
                                 or "life expectancy" in page_source.lower()
                             ):
-                                logger.info(f"Successfully loaded SSA page with Selenium: {url}")
+                                logger.info(
+                                    "Successfully loaded SSA page with Selenium: %s",
+                                    url,
+                                )
                                 result = self.parse_ssa_html_table(page_source)
 
                                 if result is not None:
@@ -489,34 +544,38 @@ class SSADataUpdater:
 
                                     if year_match and year_match >= 2018:
                                         result["year"] = year_match
-                                        logger.info(f"Updated data year to {year_match}")
+                                        logger.info(
+                                            "Updated data year to %s", year_match
+                                        )
 
                                     return result
                             else:
-                                logger.warning(f"Page does not contain life table data: {url}")
+                                logger.warning(
+                                    "Page does not contain life table data: %s", url
+                                )
 
                     except Exception as e:
-                        logger.warning(f"Error checking dropdowns: {e}")
+                        logger.warning("Error checking dropdowns: %s", e)
 
                 except TimeoutException:
-                    logger.warning(f"Timeout waiting for page to load: {url}")
+                    logger.warning("Timeout waiting for page to load: %s", url)
                 except Exception as e:
-                    logger.warning(f"Error with Selenium for {url}: {e}")
+                    logger.warning("Error with Selenium for %s: %s", url, e)
                     continue
 
             logger.error("Failed to get SSA data with Selenium from all URLs")
             return None
 
         except Exception as e:
-            logger.error(f"General Selenium error: {e}")
+            logger.error("General Selenium error: %s", e)
             return None
 
         finally:
             if driver:
-                try:
+                # A dead webdriver cannot be closed, and by this point the
+                # caller already has its result either way.
+                with contextlib.suppress(Exception):
                     driver.quit()
-                except Exception:
-                    pass
 
     def save_ssa_data(self, df, overwrite=False):
         """Save SSA data in the package format."""
@@ -527,16 +586,20 @@ class SSADataUpdater:
         try:
             # Save as CSV (uncompressed like the original)
             output_file = DATA_DIR / "ssa.csv"
-            backup_file = DATA_DIR / f"ssa-backup-{datetime.now().strftime('%Y%m%d')}.csv"
+            backup_file = (
+                DATA_DIR / f"ssa-backup-{datetime.now(tz=UTC).strftime('%Y%m%d')}.csv"
+            )
 
             # Check if we should overwrite
             if output_file.exists() and not overwrite:
-                new_file = DATA_DIR / f"ssa-new-{datetime.now().strftime('%Y%m%d')}.csv"
-                logger.info(f"File exists and overwrite=False. Saving to {new_file}")
+                stamp = datetime.now(tz=UTC).strftime("%Y%m%d")
+                new_file = DATA_DIR / f"ssa-new-{stamp}.csv"
+                logger.info("File exists and overwrite=False. Saving to %s", new_file)
                 df.to_csv(new_file, index=False)
-                logger.info(f"Saved {len(df)} records to {new_file}")
+                logger.info("Saved %s records to %s", len(df), new_file)
                 logger.info(
-                    "To replace the main data file, run with --overwrite or manually copy the file"
+                    "To replace the main data file, run with --overwrite or "
+                    "copy the file manually"
                 )
                 return True
 
@@ -545,23 +608,23 @@ class SSADataUpdater:
                 import shutil
 
                 shutil.copy2(output_file, backup_file)
-                logger.info(f"Backed up original data to {backup_file}")
+                logger.info("Backed up original data to %s", backup_file)
 
             # Save new data
             df.to_csv(output_file, index=False)
-            logger.info(f"Saved {len(df)} records to {output_file}")
+            logger.info("Saved %s records to %s", len(df), output_file)
 
             # Report data coverage
             years = df["year"].unique()
-            logger.info(f"Data covers years: {years}")
+            logger.info("Data covers years: %s", years)
 
             ages = df["age"].unique()
-            logger.info(f"Data covers ages: {ages.min()} to {ages.max()}")
+            logger.info("Data covers ages: %s to %s", ages.min(), ages.max())
 
             return True
 
         except Exception as e:
-            logger.error(f"Error saving data: {e}")
+            logger.error("Error saving data: %s", e)
             return False
 
     def update_ssa_data(self, overwrite=False):
@@ -581,7 +644,9 @@ class SSADataUpdater:
             data = self.try_selenium_scraping()
 
         if data is None:
-            logger.error("Failed to fetch SSA data from all sources (requests + Selenium)")
+            logger.error(
+                "Failed to fetch SSA data from all sources (requests + Selenium)"
+            )
             return False
 
         return self.save_ssa_data(data, overwrite=overwrite)
@@ -619,7 +684,9 @@ def main():
         print("✅ SSA data updated successfully!")
     else:
         print("❌ SSA data update failed")
-        print("Consider manual download from: https://www.ssa.gov/oact/STATS/table4c6.html")
+        print(
+            "Consider manual download from: https://www.ssa.gov/oact/STATS/table4c6.html"
+        )
 
 
 if __name__ == "__main__":

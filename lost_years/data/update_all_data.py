@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""
-Master Data Update Script
+"""Master data update script.
+
 Updates all data sources in the lost_years package.
 """
 
 import argparse
 import logging
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Import individual updaters from their new locations in data folders
@@ -31,7 +33,7 @@ try:
     sys.path.insert(0, str(data_dir / "hld"))
     from update_hld_data import HLDDataUpdater
 except ImportError as e:
-    logger.error(f"Could not import data updaters: {e}")
+    logger.error("Could not import data updaters: %s", e)
     logger.error("Update scripts should be in their respective data folders")
     sys.exit(1)
 
@@ -40,8 +42,9 @@ class MasterDataUpdater:
     """Master updater for all data sources."""
 
     def __init__(self):
+        """Start an empty run, stamping the start time for the summary."""
         self.results = {}
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(tz=UTC)
 
     def update_who_data(self):
         """Update WHO data."""
@@ -60,7 +63,7 @@ class MasterDataUpdater:
             }
             return success
         except Exception as e:
-            logger.error(f"Error updating WHO data: {e}")
+            logger.error("Error updating WHO data: %s", e)
             self.results["WHO"] = {"success": False, "message": f"Error: {e}"}
             return False
 
@@ -81,7 +84,7 @@ class MasterDataUpdater:
             }
             return success
         except Exception as e:
-            logger.error(f"Error updating SSA data: {e}")
+            logger.error("Error updating SSA data: %s", e)
             self.results["SSA"] = {"success": False, "message": f"Error: {e}"}
             return False
 
@@ -102,21 +105,21 @@ class MasterDataUpdater:
             }
             return success
         except Exception as e:
-            logger.error(f"Error updating HLD data: {e}")
+            logger.error("Error updating HLD data: %s", e)
             self.results["HLD"] = {"success": False, "message": f"Error: {e}"}
             return False
 
     def print_summary(self):
         """Print summary of update results."""
-        end_time = datetime.now()
+        end_time = datetime.now(tz=UTC)
         duration = end_time - self.start_time
 
         logger.info("=" * 60)
         logger.info("DATA UPDATE SUMMARY")
         logger.info("=" * 60)
-        logger.info(f"Started: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Finished: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Duration: {duration}")
+        logger.info("Started: %s", self.start_time.strftime("%Y-%m-%d %H:%M:%S"))
+        logger.info("Finished: %s", end_time.strftime("%Y-%m-%d %H:%M:%S"))
+        logger.info("Duration: %s", duration)
         logger.info("")
 
         success_count = 0
@@ -124,14 +127,18 @@ class MasterDataUpdater:
 
         for source, result in self.results.items():
             status = "✅ SUCCESS" if result["success"] else "❌ FAILED"
-            logger.info(f"{source:>10s}: {status}")
-            logger.info(f"{'':>12s}  {result['message']}")
+            logger.info("%10s: %s", source, status)
+            logger.info("%12s  %s", "", result["message"])
             logger.info("")
 
             if result["success"]:
                 success_count += 1
 
-        logger.info(f"Overall: {success_count}/{total_count} data sources updated successfully")
+        logger.info(
+            "Overall: %s/%s data sources updated successfully",
+            success_count,
+            total_count,
+        )
 
         match (success_count, total_count):
             case (s, t) if s == t:
@@ -196,10 +203,7 @@ def main():
     print()
 
     # Handle 'all' in sources list
-    if "all" in args.sources:
-        sources = ["who", "ssa", "hld"]
-    else:
-        sources = args.sources
+    sources = ["who", "ssa", "hld"] if "all" in args.sources else args.sources
 
     print(f"Updating sources: {', '.join(sources)}")
     print()
@@ -218,9 +222,8 @@ def main():
     if success:
         print("🎉 All requested data sources updated successfully!")
         return 0
-    else:
-        print("💥 Some updates failed. Check the logs above for details.")
-        return 1
+    print("💥 Some updates failed. Check the logs above for details.")
+    return 1
 
 
 if __name__ == "__main__":

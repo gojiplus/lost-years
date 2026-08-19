@@ -2,53 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+  schedule:
+    - cron: "17 6 * * 1"  # weekly: surface ecosystem drift on quiet repos
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.13", "3.14"]
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: |
-        uv sync --dev
-
-    - name: Lint with ruff
-      run: |
-        uv run ruff check .
-        uv run ruff format --check .
-
-    - name: Test with pytest
-      run: |
-        uv run pytest --cov=lost_years --cov-report=xml
-
-    - name: Generate Coverage Summary
-      if: always()
-      run: |
-        echo "## Test Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Python ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        uv run pytest --cov=lost_years --cov-report=term --no-header -q | tail -20 >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+  ci:
+    uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
+    with:
+      # requires-python floors at 3.12, so the reusable default of 3.11 cannot resolve.
+      python-versions: '["3.12", "3.14"]'
+      wheel-import: lost_years
+      # Measured 79% on this branch; one point of headroom.
+      coverage-floor: 78
+      run-preen: true
