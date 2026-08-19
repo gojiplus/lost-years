@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""
-WHO Data Update Script
+"""WHO data update script.
+
 Attempts to fetch updated WHO life expectancy data from available sources.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import requests
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Base directory
@@ -23,6 +25,7 @@ class WHODataUpdater:
     """WHO data updater using various available methods."""
 
     def __init__(self):
+        """Open an HTTP session identifying itself to the WHO GHO API."""
         self.session = requests.Session()
         self.session.headers.update(
             {"User-Agent": "lost_years/0.4.0 (https://github.com/gojiplus/lost_years)"}
@@ -43,11 +46,11 @@ class WHODataUpdater:
 
         for url in endpoints:
             try:
-                logger.info(f"Trying: {url}")
+                logger.info("Trying: %s", url)
                 response = self.session.get(url, timeout=30, allow_redirects=True)
 
                 if response.status_code == 200:
-                    logger.info(f"Success! Got response from {url}")
+                    logger.info("Success! Got response from %s", url)
 
                     # Check if it's JSON or CSV
                     content_type = response.headers.get("content-type", "").lower()
@@ -61,15 +64,19 @@ class WHODataUpdater:
                             pass
 
                     # Try as CSV
-                    if "csv" in content_type or "csv" in url or response.text.startswith("GHO"):
+                    if (
+                        "csv" in content_type
+                        or "csv" in url
+                        or response.text.startswith("GHO")
+                    ):
                         logger.info("Processing as CSV data")
                         return self.process_who_csv(response.text)
 
                 else:
-                    logger.warning(f"HTTP {response.status_code} from {url}")
+                    logger.warning("HTTP %s from %s", response.status_code, url)
 
             except Exception as e:
-                logger.warning(f"Failed to fetch from {url}: {e}")
+                logger.warning("Failed to fetch from %s: %s", url, e)
                 continue
 
         return None
@@ -86,17 +93,17 @@ class WHODataUpdater:
 
         for endpoint in endpoints:
             try:
-                logger.info(f"Trying: {endpoint}")
+                logger.info("Trying: %s", endpoint)
                 response = self.session.get(endpoint, timeout=30)
 
                 if response.status_code == 200:
-                    logger.info(f"Success! Got response from {endpoint}")
+                    logger.info("Success! Got response from %s", endpoint)
                     return response.json()
 
-                logger.warning(f"HTTP {response.status_code} from {endpoint}")
+                logger.warning("HTTP %s from %s", response.status_code, endpoint)
 
             except Exception as e:
-                logger.warning(f"Failed to fetch from {endpoint}: {e}")
+                logger.warning("Failed to fetch from %s: %s", endpoint, e)
 
         return None
 
@@ -106,21 +113,23 @@ class WHODataUpdater:
 
         if "value" in data:
             df = pd.DataFrame(data["value"])
-            logger.info(f"OData JSON DataFrame shape: {df.shape}")
-            logger.info(f"Columns: {df.columns.tolist()}")
+            logger.info("OData JSON DataFrame shape: %s", df.shape)
+            logger.info("Columns: %s", df.columns.tolist())
 
             # Map OData columns to package format
             df_mapped = df.copy()
 
             # Log dimension values to understand the structure
             dim1_sample = df["Dim1"].unique()[:5] if "Dim1" in df.columns else "N/A"
-            logger.info(f"Sample Dim1 values (Sex): {dim1_sample}")
+            logger.info("Sample Dim1 values (Sex): %s", dim1_sample)
             dim2_sample = df["Dim2"].unique()[:5] if "Dim2" in df.columns else "N/A"
-            logger.info(f"Sample Dim2 values (Age): {dim2_sample}")
+            logger.info("Sample Dim2 values (Age): %s", dim2_sample)
             dim3_sample = df["Dim3"].unique()[:5] if "Dim3" in df.columns else "N/A"
-            logger.info(f"Sample Dim3 values: {dim3_sample}")
-            spatial_sample = df["SpatialDim"].unique()[:5] if "SpatialDim" in df.columns else "N/A"
-            logger.info(f"Sample SpatialDim values: {spatial_sample}")
+            logger.info("Sample Dim3 values: %s", dim3_sample)
+            spatial_sample = (
+                df["SpatialDim"].unique()[:5] if "SpatialDim" in df.columns else "N/A"
+            )
+            logger.info("Sample SpatialDim values: %s", spatial_sample)
 
             # Map key columns - check which dimensions contain what data
             column_mapping = {
@@ -136,21 +145,31 @@ class WHODataUpdater:
             }
 
             # Determine which dimension contains sex and age group
-            # WHO life expectancy often has sex in Dim1 and age groups might be in other dims
+            # WHO life expectancy often has sex in Dim1, and age groups may sit
+            # in the other dimensions.
             if "Dim1" in df.columns:
                 # Check if Dim1 contains sex codes
                 dim1_values = df["Dim1"].dropna().unique()
-                if any("SEX" in str(val) or val in ["MLE", "FMLE", "BTSX"] for val in dim1_values):
+                if any(
+                    "SEX" in str(val) or val in ["MLE", "FMLE", "BTSX"]
+                    for val in dim1_values
+                ):
                     column_mapping["Dim1"] = "SEX (CODE)"
                 else:
                     column_mapping["Dim1"] = "AGEGROUP (CODE)"
 
             if "Dim2" in df.columns and "SEX (CODE)" not in column_mapping.values():
                 column_mapping["Dim2"] = "SEX (CODE)"
-            elif "Dim2" in df.columns and "AGEGROUP (CODE)" not in column_mapping.values():
+            elif (
+                "Dim2" in df.columns
+                and "AGEGROUP (CODE)" not in column_mapping.values()
+            ):
                 column_mapping["Dim2"] = "AGEGROUP (CODE)"
 
-            if "Dim3" in df.columns and "AGEGROUP (CODE)" not in column_mapping.values():
+            if (
+                "Dim3" in df.columns
+                and "AGEGROUP (CODE)" not in column_mapping.values()
+            ):
                 column_mapping["Dim3"] = "AGEGROUP (CODE)"
 
             # Apply column mapping
@@ -158,22 +177,35 @@ class WHODataUpdater:
                 if old_col in df.columns:
                     df_mapped[new_col] = df[old_col]
                     sample_vals = df[old_col].dropna().unique()[:3]
-                    logger.info(f"Mapped {old_col} -> {new_col}, sample values: {sample_vals}")
+                    logger.info(
+                        "Mapped %s -> %s, sample values: %s",
+                        old_col,
+                        new_col,
+                        sample_vals,
+                    )
 
             # Set GHO code for life expectancy
             df_mapped["GHO (CODE)"] = "LIFE_0000000035"
 
-            # Handle missing age group - this WHO data appears to be life expectancy at birth
-            if "AGEGROUP (CODE)" in df_mapped.columns and df_mapped["AGEGROUP (CODE)"].isna().all():
+            # Handle missing age group: this WHO series appears to be life
+            # expectancy at birth.
+            if (
+                "AGEGROUP (CODE)" in df_mapped.columns
+                and df_mapped["AGEGROUP (CODE)"].isna().all()
+            ):
                 df_mapped["AGEGROUP (CODE)"] = "AGELT1"  # Life expectancy at birth
-                logger.info("Set age group to AGELT1 (life expectancy at birth) for all records")
+                logger.info(
+                    "Set age group to AGELT1 (life expectancy at birth) for all records"
+                )
 
             # Fix sex codes to match package expectations (remove SEX_ prefix)
             if "SEX (CODE)" in df_mapped.columns:
                 df_mapped["SEX (CODE)"] = df_mapped["SEX (CODE)"].str.replace(
                     "SEX_", "", regex=False
                 )
-                logger.info(f"Fixed sex codes, now: {df_mapped['SEX (CODE)'].unique()}")
+                logger.info(
+                    "Fixed sex codes, now: %s", df_mapped["SEX (CODE)"].unique()
+                )
 
             # Add missing display columns with placeholder values
             for col_prefix in [
@@ -195,8 +227,8 @@ class WHODataUpdater:
                 if col not in df_mapped.columns:
                     df_mapped[col] = None
 
-            logger.info(f"Mapped DataFrame shape: {df_mapped.shape}")
-            logger.info(f"Mapped columns: {df_mapped.columns.tolist()}")
+            logger.info("Mapped DataFrame shape: %s", df_mapped.shape)
+            logger.info("Mapped columns: %s", df_mapped.columns.tolist())
 
             return df_mapped
 
@@ -211,9 +243,9 @@ class WHODataUpdater:
 
         df = pd.read_csv(StringIO(csv_text))
 
-        logger.info(f"CSV DataFrame shape: {df.shape}")
-        logger.info(f"CSV Columns: {df.columns.tolist()}")
-        logger.info(f"First few rows:\n{df.head()}")
+        logger.info("CSV DataFrame shape: %s", df.shape)
+        logger.info("CSV Columns: %s", df.columns.tolist())
+        logger.info("First few rows:\n%s", df.head())
 
         # Map WHO CSV columns to package format
         column_mapping = {
@@ -261,14 +293,14 @@ class WHODataUpdater:
 
     def process_gho_json(self, data, indicator):
         """Process JSON data from GHO API."""
-        logger.info(f"Processing GHO JSON data for {indicator}")
+        logger.info("Processing GHO JSON data for %s", indicator)
 
         if "fact" not in data:
             logger.error("No 'fact' data found in response")
             return None
 
         facts = data["fact"]
-        logger.info(f"Found {len(facts)} records")
+        logger.info("Found %s records", len(facts))
 
         # Convert to DataFrame
         df = pd.DataFrame(facts)
@@ -292,8 +324,8 @@ class WHODataUpdater:
             }
 
             df_expanded = df_expanded.rename(columns=column_mapping)
-            logger.info(f"Processed DataFrame shape: {df_expanded.shape}")
-            logger.info(f"Columns: {df_expanded.columns.tolist()}")
+            logger.info("Processed DataFrame shape: %s", df_expanded.shape)
+            logger.info("Columns: %s", df_expanded.columns.tolist())
 
             return df_expanded
 
@@ -301,15 +333,15 @@ class WHODataUpdater:
 
     def process_gho_csv(self, csv_text, indicator):
         """Process CSV data from GHO API."""
-        logger.info(f"Processing GHO CSV data for {indicator}")
+        logger.info("Processing GHO CSV data for %s", indicator)
 
         # Read CSV from string
         from io import StringIO
 
         df = pd.read_csv(StringIO(csv_text))
 
-        logger.info(f"CSV DataFrame shape: {df.shape}")
-        logger.info(f"CSV Columns: {df.columns.tolist()}")
+        logger.info("CSV DataFrame shape: %s", df.shape)
+        logger.info("CSV Columns: %s", df.columns.tolist())
 
         # Add GHO code if not present
         if "GHO (CODE)" not in df.columns:
@@ -328,7 +360,9 @@ class WHODataUpdater:
             clean_df = pd.DataFrame(
                 {
                     "country_code": df.get("COUNTRY (CODE)", df.get("SpatialDim", "")),
-                    "country_name": df.get("COUNTRY (DISPLAY)", df.get("ParentLocation", "")),
+                    "country_name": df.get(
+                        "COUNTRY (DISPLAY)", df.get("ParentLocation", "")
+                    ),
                     "year": df.get("YEAR (CODE)", df.get("TimeDim", 0)),
                     "sex_code": df.get("SEX (CODE)", df.get("Dim1", "")),
                     "life_expectancy": df.get("Numeric", df.get("NumericValue", 0.0)),
@@ -341,44 +375,49 @@ class WHODataUpdater:
             clean_df = clean_df.dropna(
                 subset=["country_code", "year", "sex_code", "life_expectancy"]
             )
-            clean_df = clean_df[clean_df["life_expectancy"] > 0]  # Remove invalid values
+            clean_df = clean_df[
+                clean_df["life_expectancy"] > 0
+            ]  # Remove invalid values
 
             # Fix sex codes (remove SEX_ prefix if present)
-            clean_df["sex_code"] = clean_df["sex_code"].str.replace("SEX_", "", regex=False)
+            clean_df["sex_code"] = clean_df["sex_code"].str.replace(
+                "SEX_", "", regex=False
+            )
 
-            logger.info(f"Clean DataFrame shape: {clean_df.shape}")
-            logger.info(f"Fixed sex codes, now: {clean_df['sex_code'].unique()}")
+            logger.info("Clean DataFrame shape: %s", clean_df.shape)
+            logger.info("Fixed sex codes, now: %s", clean_df["sex_code"].unique())
             # Save both raw and clean formats
             raw_output_file = DATA_DIR / "who-lt.csv.gz"  # Keep raw for legacy
             clean_output_file = DATA_DIR / "who.csv.gz"  # New clean format
-            backup_file = DATA_DIR / f"who-lt-backup-{datetime.now().strftime('%Y%m%d')}.csv.gz"
+            stamp = datetime.now(tz=UTC).strftime("%Y%m%d")
+            backup_file = DATA_DIR / f"who-lt-backup-{stamp}.csv.gz"
 
             # Backup original file
             if raw_output_file.exists():
                 import shutil
 
                 shutil.copy2(raw_output_file, backup_file)
-                logger.info(f"Backed up original data to {backup_file}")
+                logger.info("Backed up original data to %s", backup_file)
 
             # Save raw data (for legacy compatibility)
             df.to_csv(raw_output_file, index=False, compression="gzip")
 
             # Save clean data (for new schema)
             clean_df.to_csv(clean_output_file, index=False, compression="gzip")
-            logger.info(f"Saved {len(clean_df)} records to {clean_output_file}")
+            logger.info("Saved %s records to %s", len(clean_df), clean_output_file)
 
             # Report data coverage
             years = clean_df["year"].dropna()
             if not years.empty:
-                logger.info(f"Data covers years: {years.min()} to {years.max()}")
+                logger.info("Data covers years: %s to %s", years.min(), years.max())
 
             countries = clean_df["country_code"].nunique()
-            logger.info(f"Data covers {countries} countries/regions")
+            logger.info("Data covers %s countries/regions", countries)
 
             return True
 
         except Exception as e:
-            logger.error(f"Error saving data: {e}")
+            logger.error("Error saving data: %s", e)
             return False
 
     def update_who_data(self):

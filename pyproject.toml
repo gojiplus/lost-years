@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.9.11,<0.10.0"]
+requires = ["uv_build>=0.12.5,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -8,6 +8,7 @@ version = "0.7.0"
 description = "Get Expected Number of Years Lost"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com" },
     { name = "Gaurav Sood", email = "gsood07@gmail.com" },
@@ -54,32 +55,6 @@ lost_years_ssa = "lost_years.ssa:main"
 lost_years_hld = "lost_years.hld:main"
 lost_years_who = "lost_years.who:main"
 
-[project.optional-dependencies]
-test = [
-    "pytest>=7.0",
-    "pytest-cov",
-    "coverage",
-]
-dev = [
-    "lost_years[test]",
-    "ruff>=0.14.6",
-    "pandas-stubs",
-    "pydoclint>=0.5.0",
-    "pyright[nodejs]>=1.1.0",
-]
-docs = [
-    "sphinx>=7.0",
-    "furo", 
-    "sphinx-autodoc-typehints",
-    "myst-parser",
-    "nbsphinx>=0.9.0",
-    "ipykernel>=6.0",
-    "matplotlib>=3.7",
-    "seaborn>=0.12",
-]
-
-
-
 [tool.uv.build-backend]
 module-name = "lost_years"
 module-root = ""
@@ -87,33 +62,49 @@ wheel-exclude = [
     "lost_years/data/**/*.zip",
     "lost_years/data/**/*.ipynb",
     "lost_years/data/**/update_*.py",
+    # uv_build packages from the working tree, so a local macOS build shipped
+    # these even though .gitignore covers them.
+    "**/.DS_Store",
 ]
 source-exclude = [
     "lost_years/data/**/*.zip",
-    "lost_years/data/**/*.ipynb", 
+    "lost_years/data/**/*.ipynb",
     "lost_years/data/**/update_*.py",
+    "**/.DS_Store",
 ]
 
 [tool.ruff]
+line-length = 88
 target-version = "py312"
-line-length = 100
 
 [tool.ruff.lint]
+external = ["DOC"]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
+    "E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF",
+    "PTH", "RET", "PIE", "FURB", "PERF", "DTZ", "LOG", "G", "TC", "FLY",
+    "RSE", "SLOT", "FA", "A", "EXE", "ICN", "PGH", "PLE", "ARG", "SLF",
 ]
-ignore = []
+# D203/D213: the google convention the fleet standard picks. W191/D206/D300:
+# ruff's own docs list these as always incompatible with `ruff format`, which
+# the standard also runs.
+ignore = ["D203", "D213", "W191", "D206", "D300"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "D", "ARG", "SLF"]
+"docs/**" = ["D"]
 "__init__.py" = ["F401"]
-"examples/**/*.ipynb" = ["E501", "UP031", "I001", "E402", "F401"]  # Allow notebook issues
-"**/scrape-*.ipynb" = ["E501", "UP031", "I001", "E402", "F401", "E741"]  # Allow data notebook issues
+# Published notebooks: their cells are prose-driven and their outputs are
+# committed, so reflowing them to satisfy style rules would churn the rendered
+# docs without making the examples any clearer.
+"**/examples/*.ipynb" = ["E501", "UP031", "I001", "E402", "F401"]
+"**/scrape-*.ipynb" = ["E501", "UP031", "I001", "E402", "F401", "E741", "S113", "T201"]
+# The data/ tree holds standalone maintenance scripts -- they are excluded from
+# the wheel and the sdist and are run by hand to refresh the packaged life
+# tables. Their console output IS the user interface, so T201 does not apply.
+"lost_years/data/**/*.py" = ["T201"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -125,36 +116,47 @@ addopts = ""
 
 [dependency-groups]
 dev = [
-    "ruff>=0.14.6",
+    # >=0.16 so the locked ruff matches the `uvx ruff` that preen check runs;
+    # 0.16 formats Python inside markdown fences and older pins disagree with it.
+    "ruff>=0.16",
     "pandas-stubs",
-    "pytest>=7.0",
-    "pytest-cov",
-    "coverage",
     "types-requests>=2.32.4.20250913",
     "pydoclint>=0.5.0",
     "pyright[nodejs]>=1.1.0",
     "preen>=0.1.0",
+    { include-group = "test" },
 ]
+test = ["pytest>=8", "pytest-cov>=6"]
 docs = [
-    "matplotlib>=3.10.8",
-    "seaborn>=0.13.2",
+    "sphinx>=8",
+    "furo",
+    # myst-nb renders the example notebooks. It supersedes nbsphinx, which needs
+    # a pandoc binary the shared docs workflow does not install. myst-nb
+    # registers myst_parser itself, so conf.py must not list both extensions.
+    "myst-nb",
+    "sphinx-copybutton",
+    "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
 ]
 
 
 [tool.pydoclint]
 style = "google"
-exclude = '\.git|\.tox|tests|lost_years/data/.*update.*\.py|lost_years/data/.*scrape.*'
-check-return-types = false
-check-yield-types = false
 arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+allow-init-docstring = true
+# The data updater/scraper scripts are maintenance tooling, excluded from the
+# wheel and from pyright too; they are not part of the documented API surface.
+exclude = '\.venv|tests|docs|lost_years/data/.*update.*\.py|lost_years/data/.*scrape.*'
+check-yield-types = false
 skip-checking-short-docstrings = true
 skip-checking-raises = false
 
 [tool.pyright]
+include = ["lost_years"]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 pythonPlatform = "All"
-include = ["lost_years"]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
@@ -170,3 +172,27 @@ reportUnusedClass = true
 reportUnusedFunction = true
 reportUnusedVariable = true
 reportDuplicateImport = true
+
+
+
+[tool.codespell]
+# THA is Thailand's ISO-3166 code; it appears throughout the README's worked
+# examples, where codespell reads it as a typo for "than"/"that"/"the".
+ignore-words-list = "tha"
+
+[tool.preen]
+# DEFERRED, not resolved: runtime-assets objects to the packaged life tables
+# being gzipped CSV (and to hld.zip sitting in the package tree). Those files
+# are published assets -- users read them straight from an installed wheel and
+# the update scripts regenerate them in place -- so converting them to Parquet
+# is a data-format decision for the maintainers, not a lint fix. Skipping keeps
+# CI honest about everything else until that call is made.
+skip_checks = ["runtime-assets"]
+
+# Candidate WHO endpoints the updater probes in turn and expects to fail --
+# they are tried behind `try`/`except`, not depended on. Schemeless so lychee
+# does not read the pattern itself as a URL.
+link_ignore = [
+    "platform\\.who\\.int/api/mortality/data",
+    "api\\.who\\.int/v1/data",
+]

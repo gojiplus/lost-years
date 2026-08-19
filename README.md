@@ -1,12 +1,12 @@
 # Lost Years: Expected Number of Years Lost
 
 [![PyPI Version](https://img.shields.io/pypi/v/lost-years.svg)](https://pypi.python.org/pypi/lost-years)
-[![Documentation Status](https://github.com/gojiplus/lost_years/actions/workflows/docs.yml/badge.svg)](https://gojiplus.github.io/lost_years/)
+[![Documentation Status](https://github.com/gojiplus/lost-years/actions/workflows/docs.yml/badge.svg)](https://gojiplus.github.io/lost-years/)
 [![Downloads](https://static.pepy.tech/badge/lost-years)](https://pepy.tech/project/lost-years)
 
 Mortality rate is puzzling to mortals. A better number is the expected number of years lost. (A yet better number would be quality-adjusted years lost.) To make it easier to calculate the expected years lost, `lost_years` provides a convenient way to join to the [SSA actuarial data](https://www.ssa.gov/oact/HistEst/PerLifeTables/), [HLD data](https://www.lifetable.de/), and [WHO life table data](https://platform.who.int/mortality).
 
-**Data Currency Note**: The packaged data covers years up to 2016. For the most recent data (2023-2024), use the data update script: `python scripts/update_data.py`
+**Data Currency Note**: The packaged data covers years up to 2016. To refresh it, run the per-source maintenance scripts under `lost_years/data/` (for example `python lost_years/data/update_all_data.py`); HLD still needs a manual download from [lifetable.de](https://www.lifetable.de/).
 
 The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lost_years_who`:
 

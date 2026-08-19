@@ -1,17 +1,17 @@
 """Configuration file for the Sphinx documentation builder."""
 
-import os
 import sys
+from pathlib import Path
+
+# The package is installed into the docs environment, but autodoc also has to
+# find it when the docs are built from a bare checkout.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import lost_years
 
-# Add the package path for autodoc
-sys.path.insert(0, os.path.abspath("../../"))
-
-
 # -- Project information -----------------------------------------------------
 project = "lost_years"
-copyright = "2024, Gaurav Sood, Suriyan Laohaprapanon"
+project_copyright = "2024, Gaurav Sood, Suriyan Laohaprapanon"
 author = "Gaurav Sood, Suriyan Laohaprapanon"
 
 # The version info for the project - import from package
@@ -20,14 +20,17 @@ release = version
 
 
 # -- General configuration ---------------------------------------------------
+# myst_nb loads myst_parser itself; listing both aborts the build with an
+# "extension already registered" error.
 extensions = [
     "sphinx.ext.autodoc",
+    # The shared docs workflow runs the doctest builder.
+    "sphinx.ext.doctest",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
-    "sphinx_autodoc_typehints",
-    "myst_parser",
-    "nbsphinx",
+    "sphinx_copybutton",
+    "myst_nb",
 ]
 
 templates_path = ["_templates"]
@@ -36,7 +39,8 @@ exclude_patterns = []
 # The suffix(es) of source filenames
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
 }
 
 # The root toctree document
@@ -98,17 +102,17 @@ myst_enable_extensions = [
     "html_image",
 ]
 
-# nbsphinx configuration
-nbsphinx_execute = "always"
-nbsphinx_allow_errors = True
-nbsphinx_kernel_name = "python3"
-nbsphinx_timeout = 600
-nbsphinx_execute_arguments = [
-    "--InlineBackend.figure_formats={'svg', 'pdf'}",
-    "--InlineBackend.rc={'figure.dpi': 96}",
-]
+# myst-nb: render the notebooks' committed outputs rather than re-running them.
+# The examples join against the packaged life tables and their outputs are
+# checked in, so executing on every docs build costs minutes and buys nothing --
+# and under `sphinx-build -W` any execution warning would fail the build.
+nb_execution_mode = "off"
 
-# Exclude patterns for notebooks
+# myst applies its heading-level rule per notebook cell, so every example
+# cell that opens with an `###` subsection is reported as "headings start at
+# H3". The notebooks are correct as written; only the per-cell view is wrong.
+suppress_warnings = ["myst.header"]
+
 exclude_patterns.extend(["examples/.ipynb_checkpoints"])
 
 

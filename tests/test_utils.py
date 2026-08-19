@@ -8,7 +8,13 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 
-from lost_years.utils import closest, column_exists, download_file, fixup_columns, isstring
+from lost_years.utils import (
+    closest,
+    column_exists,
+    download_file,
+    fixup_columns,
+    isstring,
+)
 
 
 class TestUtilFunctions:
@@ -47,7 +53,7 @@ class TestUtilFunctions:
             assert column_exists(df, "invalid_col") is False
 
         # Check error message is logged
-        assert "The specify column `invalid_col` not found" in caplog.text
+        assert "The specified column `invalid_col` was not found" in caplog.text
 
     def test_column_exists_none_column(self):
         """Test column_exists with None column."""
