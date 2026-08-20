@@ -142,7 +142,7 @@ def build_manifest(
     title: str,
     home_url: str,
     source_url: str,
-    licence: str,
+    license_terms: str,
     upstream_release: str,
     built_from: str,
     table: Path,
@@ -156,7 +156,7 @@ def build_manifest(
         title: Human-readable name of the upstream database.
         home_url: Landing page a user should cite and read the terms on.
         source_url: URL the raw artifact was downloaded from.
-        licence: Redistribution terms of the upstream data.
+        license_terms: Redistribution terms of the upstream data.
         upstream_release: Upstream's own identifier for this release.
         built_from: ``"download"``, or the local path the table was built from
             when the download was bypassed.
@@ -175,7 +175,7 @@ def build_manifest(
         "title": title,
         "home_url": home_url,
         "source_url": source_url,
-        "licence": licence,
+        "license": license_terms,
         "upstream_release": upstream_release,
         "built_from": built_from,
         "fetched_at": datetime.now(tz=UTC).isoformat(timespec="seconds"),

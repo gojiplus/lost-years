@@ -56,7 +56,7 @@ Every derived table has a `<name>.parquet.manifest.json` beside it:
 |---|---|
 | `source`, `title`, `home_url` | which database, and where to read its terms |
 | `source_url` | the URL the release is published at |
-| `licence` | redistribution terms |
+| `license` | redistribution terms |
 | `upstream_release` | upstream's own identifier — HLD's release date, SSA's and WHO's table year |
 | `built_from` | `download`, or the local path when `--from-file` was used |
 | `fetched_at` | UTC timestamp of the build |
@@ -296,7 +296,7 @@ aggregates, and `spatial_type` says which is which. Filter on
 | `high_ci` | `float64` | upper bound | | 20 rows |
 
 `ParentLocation` is deliberately **not** carried: GHO puts the WHO *region*
-there, not a country name, which is how Somalia once came to be labelled
+there, not a country name, which is how Somalia once came to be labeled
 "Eastern Mediterranean".
 
 Year is matched to the closest table year with no default limit, and the

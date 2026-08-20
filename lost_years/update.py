@@ -102,7 +102,7 @@ def update(
             title=source.title,
             home_url=source.home_url,
             source_url=source.url_for(release),
-            licence=source.licence,
+            license_terms=source.license,
             upstream_release=release,
             built_from=str(from_file) if from_file else "download",
             table=candidate,

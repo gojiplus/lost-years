@@ -47,10 +47,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/gojiplus/lost_years"
+Homepage = "https://github.com/gojiplus/lost-years"
 Documentation = "https://gojiplus.github.io/lost-years/"
-Repository = "https://github.com/gojiplus/lost_years.git"
-Issues = "https://github.com/gojiplus/lost_years/issues"
+Repository = "https://github.com/gojiplus/lost-years.git"
+Issues = "https://github.com/gojiplus/lost-years/issues"
 
 [project.scripts]
 lost_years = "lost_years.cli:main"

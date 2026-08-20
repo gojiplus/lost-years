@@ -10,7 +10,9 @@ Releases before 0.7.0 predate this file; see the
 
 ## [Unreleased]
 
-### Added — a data pipeline users can run
+## [0.8.0] - 2026-08-20
+
+### Added
 
 - **`lost_years update [--source hld|ssa|who|all]`.** Downloads to a scratch
   directory, builds a typed Parquet table with an explicit Arrow schema,
@@ -37,7 +39,22 @@ Releases before 0.7.0 predate this file; see the
   clients (ssa.gov answers many of them with HTTP 403) and for rebuilding from
   an archived copy. It is also how the test suite stays offline.
 
-### Changed — what ships
+
+- `lost_years_hld(subpopulations=True)` returns one resolved row per
+  sub-population — region, urban/rural, ethnicity, socio-demographic group —
+  instead of the single national total, with the same options on the CLI
+  (`--subpopulations`, `--year-tolerance`, `--no-quarantine`).
+- HLD output exposes the matched period (`hld_year1`, `hld_year2`), the age
+  interval (`hld_age_interval`, `99` for the open top interval), the source
+  table (`hld_ref_id`, `hld_version`, `hld_type_lt`), its internal discrepancy
+  (`hld_ex_discrepancy`) and the candidate count (`hld_n_candidates`).
+- A data dictionary documenting the packaged tables, their known defects and
+  the HLD selection rule.
+- Regression tests that assert real life-expectancy values, using the
+  NCHS-published US tables as an oracle. The suite previously asserted no
+  life-expectancy value at all.
+
+### Changed
 
 - **Only the SSA table ships in the wheel**, as Parquet: 10 KB against the
   previous 52 MB of gzipped CSV and a 54 MB ZIP. HLD is not shipped because
@@ -53,6 +70,21 @@ Releases before 0.7.0 predate this file; see the
 - New dependencies `pyarrow` and `platformdirs`; **`selenium` is no longer a
   runtime dependency** — a browser automation stack was being installed for a
   scraper that ran by hand, if ever.
+
+
+- The usage example notebook is rewritten and re-executed against the new
+  contract. The three COVID-19 notebooks are **not**: their `lost_years_who`
+  cells passed an age mapping that now raises, and their HLD cells relied on
+  the old silent snap to the nearest `Year1`. Re-running those analyses means
+  redoing them rather than re-executing them, so they carry a warning in the
+  docs instead.
+- Adopted the shared `py-canon` project standard: CI, docs, release and
+  Dependabot workflows now call `gojiplus/py-canon` reusable workflows.
+- Documentation builds with `myst-nb` instead of `nbsphinx`, so example
+  notebooks render from their committed outputs and no longer need pandoc or a
+  live kernel.
+- Log messages use deferred `%`-style formatting rather than f-strings.
+- Timestamps in the data-maintenance scripts are timezone-aware (UTC).
 
 ### Fixed
 
@@ -73,24 +105,6 @@ Releases before 0.7.0 predate this file; see the
   income groups and a global total, 726 rows — with nothing to tell them apart.
   A `spatial_type` column now says which is which.
 
-### Removed
-
-- `lost_years.types` and its four exports (`LifeExpectancyResult`,
-  `DataSourceConfig`, `ColumnConfig`, `ColumnMapping`): nothing used them.
-- `lost_years/data/consolidate_data.py`, whose `consolidate_hmd_data()` wrote a
-  hardcoded fake life table into the package tree. HMD is credential-gated with
-  no unattended path, so this is deleted rather than repaired.
-- `lost_years/data_sources.json`, which claimed SSA 2024 while shipping 2022 and
-  did not mention HLD at all. `lost_years sources` reads the live registry.
-- The per-source `update_*.py` maintenance scripts, `schemas.py`,
-  `update_all_data.py` and the WHO scraping notebook, superseded by
-  `lost_years update`.
-- Dead `WHO_COLS`, `LostYearsWHOData.convert_agegroup` and its unused
-  translation cache — leftovers from the age-band indicator the package does
-  not use — and `hld.normalise_code`, which moved to `lost_years.sources.hld`
-  where the repair now happens.
-
-### Fixed — wrong answers
 
 - **HLD returned an arbitrary life table.** The loader read 5 of the file's 21
   columns, dropping every column that identifies *which* published table a row
@@ -106,7 +120,7 @@ Releases before 0.7.0 predate this file; see the
 - **A packaging bug hid two thirds of the national life tables.** The update
   script read the pooled file without `dtype=`, so sub-population codes went
   through float and came back as `'0.0'`; a `== '0'` test kept 550,429 rows
-  where 717,457 qualify. Codes are now normalised on read, and the update
+  where 717,457 qualify. Codes are now normalized on read, and the update
   script preserves them.
 - **`US` returned Australia.** Country input was passed to `str.contains()` as
   an unanchored regular expression. Country codes are now matched exactly and
@@ -125,47 +139,32 @@ Releases before 0.7.0 predate this file; see the
   `who_life_expectancy_at_birth`, and raises `ValueError` if an `age` mapping
   is passed.
 
-### Added
-
-- `lost_years_hld(subpopulations=True)` returns one resolved row per
-  sub-population — region, urban/rural, ethnicity, socio-demographic group —
-  instead of the single national total, with the same options on the CLI
-  (`--subpopulations`, `--year-tolerance`, `--no-quarantine`).
-- HLD output exposes the matched period (`hld_year1`, `hld_year2`), the age
-  interval (`hld_age_interval`, `99` for the open top interval), the source
-  table (`hld_ref_id`, `hld_version`, `hld_type_lt`), its internal discrepancy
-  (`hld_ex_discrepancy`) and the candidate count (`hld_n_candidates`).
-- A data dictionary documenting the packaged tables, their known defects and
-  the HLD selection rule.
-- Regression tests that assert real life-expectancy values, using the
-  NCHS-published US tables as an oracle. The suite previously asserted no
-  life-expectancy value at all.
-
-### Changed
-
-- The usage example notebook is rewritten and re-executed against the new
-  contract. The three COVID-19 notebooks are **not**: their `lost_years_who`
-  cells passed an age mapping that now raises, and their HLD cells relied on
-  the old silent snap to the nearest `Year1`. Re-running those analyses means
-  redoing them rather than re-executing them, so they carry a warning in the
-  docs instead.
-- Adopted the shared `py-canon` project standard: CI, docs, release and
-  Dependabot workflows now call `gojiplus/py-canon` reusable workflows.
-- Documentation builds with `myst-nb` instead of `nbsphinx`, so example
-  notebooks render from their committed outputs and no longer need pandoc or a
-  live kernel.
-- Log messages use deferred `%`-style formatting rather than f-strings.
-- Timestamps in the data-maintenance scripts are timezone-aware (UTC).
-
-### Fixed
 
 - `download_file` sets a request timeout instead of blocking indefinitely.
 - Local (macOS) builds no longer ship `.DS_Store` files inside the wheel.
 - README documentation badge and link point at the real docs URL.
+
+### Removed
+
+- `lost_years.types` and its four exports (`LifeExpectancyResult`,
+  `DataSourceConfig`, `ColumnConfig`, `ColumnMapping`): nothing used them.
+- `lost_years/data/consolidate_data.py`, whose `consolidate_hmd_data()` wrote a
+  hardcoded fake life table into the package tree. HMD is credential-gated with
+  no unattended path, so this is deleted rather than repaired.
+- `lost_years/data_sources.json`, which claimed SSA 2024 while shipping 2022 and
+  did not mention HLD at all. `lost_years sources` reads the live registry.
+- The per-source `update_*.py` maintenance scripts, `schemas.py`,
+  `update_all_data.py` and the WHO scraping notebook, superseded by
+  `lost_years update`.
+- Dead `WHO_COLS`, `LostYearsWHOData.convert_agegroup` and its unused
+  translation cache — leftovers from the age-band indicator the package does
+  not use — and `hld.normalise_code`, which moved to `lost_years.sources.hld`
+  where the repair now happens.
 
 ## [0.7.0]
 
 - Packaged data refresh and Python 3.12+ support.
 
 [Unreleased]: https://github.com/gojiplus/lost-years/commits/master
+[0.8.0]: https://pypi.org/project/lost-years/0.8.0/
 [0.7.0]: https://pypi.org/project/lost-years/0.7.0/

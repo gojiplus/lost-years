@@ -181,7 +181,7 @@ class HLD(Source):
     title = "Human Life-Table Database"
     home_url = "https://www.lifetable.de/"
     download_url = "https://www.lifetable.de/File/GetDocument/data/hld.zip"
-    licence = (
+    license = (
         "No affirmative redistribution grant. lifetable.de asks that users "
         "download their own copy; see https://www.lifetable.de/ for the user "
         "agreement."
