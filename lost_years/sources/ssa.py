@@ -64,7 +64,7 @@ class SSA(Source):
     title = "SSA period life table"
     home_url = HOME_URL
     download_url = TABLE_URL
-    licence = "Public domain (work of the US federal government)"
+    license = "Public domain (work of the US federal government)"
     filename = "ssa.parquet"
     min_rows = EXPECTED_AGES
     ships_in_wheel = True

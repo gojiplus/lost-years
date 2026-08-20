@@ -54,7 +54,7 @@ language = "en"
 html_theme = "furo"
 
 html_theme_options = {
-    "source_repository": "https://github.com/gojiplus/lost_years/",
+    "source_repository": "https://github.com/gojiplus/lost-years/",
     "source_branch": "master",
     "source_directory": "docs/source/",
     "navigation_with_keys": True,

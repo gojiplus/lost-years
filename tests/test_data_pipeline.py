@@ -104,7 +104,7 @@ class TestManifest:
         assert manifest is not None
         assert manifest["source_url"] == source.download_url
         assert manifest["home_url"] == source.home_url
-        assert manifest["licence"] == source.licence
+        assert manifest["license"] == source.license
         assert manifest["upstream_release"]
         assert manifest["fetched_at"].endswith("+00:00")
         assert manifest["rows"] == pq.read_metadata(table).num_rows
