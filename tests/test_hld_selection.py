@@ -15,9 +15,9 @@ from lost_years import lost_years_hld
 from lost_years.hld import (
     OPEN_AGE_INTERVAL,
     load_hld_table,
-    normalise_code,
     select_life_expectancy,
 )
+from lost_years.sources.hld import normalise_code
 
 # NCHS published values, to the one decimal NCHS reports.
 NCHS_USA_MALE_E0 = {2018: 76.2, 2019: 76.3, 2020: 74.2, 2021: 73.5}

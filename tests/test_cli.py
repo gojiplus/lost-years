@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from lost_years import hld, ssa, who
+from lost_years import TableUnavailableError, hld, ssa, who
 
 
 @pytest.fixture
@@ -85,8 +85,17 @@ def test_who_unknown_country_returns_no_match():
     assert row["who_match_status"] == "no WHO row for country, sex and year"
 
 
-def test_hld_missing_data_file(monkeypatch):
-    """When the packaged HLD file is absent the input comes back untouched."""
-    monkeypatch.setattr(hld, "HLD_DATA", "/nonexistent/hld.csv.gz")
+def test_hld_says_how_to_install_its_table(scratch_cache):
+    """With no HLD table installed, the error names the command that gets one."""
     df = pd.DataFrame({"country": ["USA"], "year": [2019], "sex": ["M"], "age": [0]})
-    assert hld.lost_years_hld(df).equals(df)
+    with pytest.raises(
+        TableUnavailableError, match="lost_years update --source hld"
+    ) as raised:
+        hld.lost_years_hld(df)
+    assert str(scratch_cache) in str(raised.value)
+
+
+def test_hld_cli_exits_nonzero_without_a_table(scratch_cache, input_csv, tmp_path):
+    """The CLI reports the missing table rather than raising through argparse."""
+    del scratch_cache
+    assert hld.main([str(input_csv), "-o", str(tmp_path / "out.csv")]) == -1
