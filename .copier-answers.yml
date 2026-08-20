@@ -3,7 +3,7 @@ _commit: v1.2.0
 _src_path: gh:gojiplus/py-canon
 author_email: suriyant@gmail.com
 author_name: Suriyan Laohaprapanon
-coverage_floor: 78
+coverage_floor: 88
 default_branch: master
 description: Get Expected Number of Years Lost
 needs_cli: true
