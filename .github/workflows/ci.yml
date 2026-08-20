@@ -18,7 +18,8 @@ jobs:
   ci:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
-      # requires-python floors at 3.12, so the reusable default of 3.11 cannot resolve.
+      # Pinned rather than inherited: the reusable default tracks the fleet's
+      # floor, and requires-python here is >=3.12.
       python-versions: '["3.12", "3.14"]'
       wheel-import: lost_years
       # Measured 90% on this branch; two points of headroom.
