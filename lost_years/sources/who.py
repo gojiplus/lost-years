@@ -34,7 +34,7 @@ HOME_URL = "https://www.who.int/data/gho"
 
 # ISO-3166 alpha-3 to country name, built from the REST Countries API. GHO
 # returns only the code, and its `ParentLocation` is the WHO *region*, which is
-# how Somalia came to be labelled "Eastern Mediterranean" in an earlier release.
+# how Somalia came to be labeled "Eastern Mediterranean" in an earlier release.
 COUNTRY_NAMES = files("lost_years") / "data" / "who" / "iso_country_mapping.json"
 
 COLUMNS = [
@@ -103,7 +103,7 @@ class WHO(Source):
     title = "WHO Global Health Observatory, life expectancy at birth"
     home_url = HOME_URL
     download_url = API_URL
-    licence = "CC BY 4.0"
+    license = "CC BY 4.0"
     filename = "who.parquet"
     min_rows = 12_936
 

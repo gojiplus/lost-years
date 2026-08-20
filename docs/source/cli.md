@@ -56,7 +56,7 @@ whose SHA-256 no longer matches its manifest is reported as `damaged`.
 
 ### lost_years sources
 
-Prints the registry: home page, download URL, licence and filename for each
+Prints the registry: home page, download URL, license and filename for each
 source. Read it before redistributing anything derived from these tables --
 HLD in particular carries no redistribution grant.
 

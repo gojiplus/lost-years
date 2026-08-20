@@ -41,7 +41,7 @@ def _describe(source: str) -> str:
         f"{entry.name}: {entry.title}\n"
         f"  home     {entry.home_url}\n"
         f"  download {entry.download_url}\n"
-        f"  licence  {entry.licence}\n"
+        f"  license  {entry.license}\n"
         f"  table    {entry.filename} ({ships})"
     )
 

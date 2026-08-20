@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Public hosts serving multi-megabyte files; the timeout is per-read, not for
 # the whole transfer.
 READ_TIMEOUT = 120
-USER_AGENT = "lost-years (https://github.com/gojiplus/lost_years)"
+USER_AGENT = "lost-years (https://github.com/gojiplus/lost-years)"
 
 
 class SourceUnavailableError(RuntimeError):
@@ -37,7 +37,7 @@ class Source(ABC):
     title: str
     home_url: str
     download_url: str
-    licence: str
+    license: str
     filename: str
     # A release never has fewer rows than the one the package was tested
     # against, so a short table means a truncated or partial download.

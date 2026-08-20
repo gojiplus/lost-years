@@ -4,10 +4,10 @@
     "table_year": 2022
   },
   "built_from": "data/ssa/source/ssa-2022.csv",
-  "fetched_at": "2026-08-19T22:56:00+00:00",
+  "fetched_at": "2026-08-20T19:19:19+00:00",
   "filename": "ssa.parquet",
-  "home_url": "https://www.ssa.gov/oact/HistEst/PerLifeTables/",
-  "licence": "Public domain (work of the US federal government)",
+  "home_url": "https://www.ssa.gov/oact/STATS/table4c6.html",
+  "license": "Public domain (work of the US federal government)",
   "raw_sha256": "820f86781a0f7c72c0af845f3daab2d71d1e83fb0127ca0b15287d2a772b5fa9",
   "rows": 120,
   "schema": [
@@ -54,7 +54,7 @@
   ],
   "sha256": "58af52ae294df27096571b51b911bef6fa198b473fc652dd45533c6cc7d994ff",
   "source": "ssa",
-  "source_url": "https://www.ssa.gov/oact/HistEst/PerLifeTables/2022/PerLifeTables2022.html",
+  "source_url": "https://www.ssa.gov/oact/STATS/table4c6.html",
   "title": "SSA period life table",
   "upstream_release": "2022"
 }
