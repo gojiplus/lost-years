@@ -173,6 +173,11 @@ reportDuplicateImport = true
 
 
 
+[tool.deptry.per_rule_ignores]
+# lxml is pandas.read_html's parser backend for the SSA page. Nothing imports
+# it directly, which is exactly what deptry reads as an unused dependency.
+DEP002 = ["lxml"]
+
 [tool.codespell]
 # THA is Thailand's ISO-3166 code; it appears throughout the README's worked
 # examples, where codespell reads it as a typo for "than"/"that"/"the".

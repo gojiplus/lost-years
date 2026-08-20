@@ -33,7 +33,7 @@ The package exposes three functions: `lost_years_ssa`, `lost_years_hld`, and `lo
     * **Age intervals:** many HLD tables are abridged, so "age 20" may come from an interval covering 20-24. The matched interval is reported in `hld_age` and `hld_age_interval` (99 marks the open-ended top interval).
 
     * **Output**
-        * The original codebook for HLD is posted [here](https://github.com/gojiplus/lost_years/blob/master/data/hld/source/formats.pdf). For more information, check [HLD](https://www.lifetable.de/).
+        * HLD's own codebook is [`formats.pdf`](https://www.lifetable.de/File/GetDocument/formats.pdf), archived in this repository at `data/hld/source/formats.pdf`. For more information, check [HLD](https://www.lifetable.de/).
         * To make it easier to use, we normalize the column names.
 
 * **`lost_years_who`**: Joins to the WHO Global Health Observatory [life expectancy at birth](https://www.who.int/data/gho) indicator.

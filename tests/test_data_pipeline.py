@@ -24,12 +24,13 @@ from lost_years.datasets import (
     read_manifest,
     resolve,
     sha256,
+    shipped_path,
 )
 from lost_years.sources import REGISTRY, get_source
 from lost_years.sources.hld import NCHS_USA_MALE_E0
 from lost_years.update import STATE_DAMAGED, STATE_MISSING, status, update
 
-from .conftest import RAW, clear_table_caches
+from .conftest import RAW, REPO, clear_table_caches
 
 HLD_ZIP = RAW["hld"]
 WHO_JSON = RAW["who"]
@@ -234,12 +235,10 @@ class TestUpdateInstalls:
 
     def test_downloaded_table_wins_over_the_shipped_one(self, scratch_cache):
         """`lost_years update` is how a user replaces a stale packaged table."""
-        assert resolve("ssa", "ssa.parquet").is_relative_to(
-            Path(__file__).parent.parent
-        )
+        assert resolve("ssa", "ssa.parquet") == shipped_path("ssa", "ssa.parquet")
         update(
             "ssa",
-            from_file=Path("data/ssa/source/ssa-2022.csv"),
+            from_file=REPO / "data" / "ssa" / "source" / "ssa-2022.csv",
             destination=scratch_cache / "ssa",
         )
         assert resolve("ssa", "ssa.parquet") == scratch_cache / "ssa" / "ssa.parquet"
