@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "lost_years"
-version = "0.7.0"
+version = "0.8.0"
 description = "Get Expected Number of Years Lost"
 readme = "README.md"
 license = "MIT"
@@ -19,10 +19,12 @@ maintainers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "beautifulsoup4>=4.14.2",
+    # pandas.read_html needs a parser backend; lxml is the one pandas prefers.
+    "lxml>=5",
     "pandas",
+    "platformdirs>=4",
+    "pyarrow>=15",
     "requests",
-    "selenium>=4.38.0",
 ]
 keywords = [
     "lost years",
@@ -51,6 +53,7 @@ Repository = "https://github.com/gojiplus/lost_years.git"
 Issues = "https://github.com/gojiplus/lost_years/issues"
 
 [project.scripts]
+lost_years = "lost_years.cli:main"
 lost_years_ssa = "lost_years.ssa:main"
 lost_years_hld = "lost_years.hld:main"
 lost_years_who = "lost_years.who:main"
@@ -58,18 +61,18 @@ lost_years_who = "lost_years.who:main"
 [tool.uv.build-backend]
 module-name = "lost_years"
 module-root = ""
-wheel-exclude = [
-    "lost_years/data/**/*.zip",
-    "lost_years/data/**/*.ipynb",
-    "lost_years/data/**/update_*.py",
-    # uv_build packages from the working tree, so a local macOS build shipped
-    # these even though .gitignore covers them.
+# The only table that ships is lost_years/data/ssa/ssa.parquet. The raw
+# upstream artifacts live in data/ at the repository root, outside the import
+# package, so neither the wheel nor the sdist carries them -- uv_build's sdist
+# holds the module root and the metadata files, nothing else. An explicit
+# `data/**` exclude is worse than none: the pattern is unanchored, so it also
+# matches lost_years/data/ and drops the one table that is supposed to ship.
+source-exclude = [
     "**/.DS_Store",
 ]
-source-exclude = [
-    "lost_years/data/**/*.zip",
-    "lost_years/data/**/*.ipynb",
-    "lost_years/data/**/update_*.py",
+wheel-exclude = [
+    # uv_build packages from the working tree, so a local macOS build shipped
+    # these even though .gitignore covers them.
     "**/.DS_Store",
 ]
 
@@ -101,10 +104,9 @@ convention = "google"
 # docs without making the examples any clearer.
 "**/examples/*.ipynb" = ["E501", "UP031", "I001", "E402", "F401"]
 "**/scrape-*.ipynb" = ["E501", "UP031", "I001", "E402", "F401", "E741", "S113", "T201"]
-# The data/ tree holds standalone maintenance scripts -- they are excluded from
-# the wheel and the sdist and are run by hand to refresh the packaged life
-# tables. Their console output IS the user interface, so T201 does not apply.
-"lost_years/data/**/*.py" = ["T201"]
+# `lost_years update` and `lost_years status` print their results; that output
+# IS the user interface, so T201 does not apply to the CLI.
+"lost_years/cli.py" = ["T201"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -145,9 +147,7 @@ arg-type-hints-in-docstring = false
 check-return-types = false
 check-class-attributes = false
 allow-init-docstring = true
-# The data updater/scraper scripts are maintenance tooling, excluded from the
-# wheel and from pyright too; they are not part of the documented API surface.
-exclude = '\.venv|tests|docs|lost_years/data/.*update.*\.py|lost_years/data/.*scrape.*'
+exclude = '\.venv|tests|docs'
 check-yield-types = false
 skip-checking-short-docstrings = true
 skip-checking-raises = false
@@ -160,8 +160,6 @@ pythonPlatform = "All"
 exclude = [
     "**/node_modules",
     "**/__pycache__",
-    "lost_years/data/**/update_*.py",
-    "lost_years/data/**/scrape-*.ipynb",
     "examples/**/*.ipynb"
 ]
 reportMissingImports = true
@@ -175,24 +173,17 @@ reportDuplicateImport = true
 
 
 
+[tool.deptry.per_rule_ignores]
+# lxml is pandas.read_html's parser backend for the SSA page. Nothing imports
+# it directly, which is exactly what deptry reads as an unused dependency.
+DEP002 = ["lxml"]
+
 [tool.codespell]
 # THA is Thailand's ISO-3166 code; it appears throughout the README's worked
 # examples, where codespell reads it as a typo for "than"/"that"/"the".
 ignore-words-list = "tha"
 
 [tool.preen]
-# DEFERRED, not resolved: runtime-assets objects to the packaged life tables
-# being gzipped CSV (and to hld.zip sitting in the package tree). Those files
-# are published assets -- users read them straight from an installed wheel and
-# the update scripts regenerate them in place -- so converting them to Parquet
-# is a data-format decision for the maintainers, not a lint fix. Skipping keeps
-# CI honest about everything else until that call is made.
-skip_checks = ["runtime-assets"]
-
-# Candidate WHO endpoints the updater probes in turn and expects to fail --
-# they are tried behind `try`/`except`, not depended on. Schemeless so lychee
-# does not read the pattern itself as a URL.
-link_ignore = [
-    "platform\\.who\\.int/api/mortality/data",
-    "api\\.who\\.int/v1/data",
-]
+# Nothing tabular ships: the one packaged table is typed Parquet with an
+# explicit Arrow schema, and the raw upstream artifacts live outside the import
+# package. `runtime-assets` therefore runs like every other check.

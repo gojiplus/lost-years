@@ -3,16 +3,20 @@
 import argparse
 import logging
 import sys
-from importlib.resources import files
 
 import pandas as pd
+import pyarrow.parquet as pq
 
+from .datasets import resolve
 from .utils import closest, column_exists, fixup_columns
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
-SSA_DATA = files("lost_years") / "data" / "ssa" / "ssa.csv"
+# The one table that ships inside the wheel: a US federal work in the public
+# domain, small enough that the package answers US questions offline. A copy
+# installed by `lost_years update --source ssa` takes precedence over it.
+SSA_FILENAME = "ssa.parquet"
 SSA_COLS = ["age", "male_life_expectancy", "female_life_expectancy", "year"]
 
 # The packaged table is complete on single years of age 0-119, so any age it
@@ -109,7 +113,9 @@ class LostYearsSSAData:
             df_cols[col] = tcol
 
         if cls.__df is None:
-            cls.__df = pd.read_csv(str(SSA_DATA), usecols=SSA_COLS)
+            cls.__df = pq.read_table(
+                resolve("ssa", SSA_FILENAME), columns=SSA_COLS
+            ).to_pandas()
 
         records = []
         for _, r in df.iterrows():

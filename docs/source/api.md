@@ -48,6 +48,23 @@ The `lost_years` package provides three main functions for calculating expected 
    :exclude-members: lost_years_who
 ```
 
+### Data management
+
+```{eval-rst}
+.. automodule:: lost_years.datasets
+   :members:
+```
+
+```{eval-rst}
+.. automodule:: lost_years.update
+   :members:
+```
+
+```{eval-rst}
+.. automodule:: lost_years.sources.base
+   :members:
+```
+
 ### Utilities
 
 ```{eval-rst}
