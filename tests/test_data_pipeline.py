@@ -223,6 +223,23 @@ class TestManifest:
             }
         ]
 
+    def test_line_counter_survives_a_truncated_last_line(self):
+        """A line cut short mid-record is counted as malformed, not a crash."""
+        header = "Country,Region,Residence,Ethnicity,SocDem,Version,Ref-ID,Year1,Year2"
+        header += ",TypeLT,Sex,Age,AgeInt,m(x),q(x),l(x),d(x),L(x),T(x),e(x),e(x)Orig"
+        lines = [
+            header,
+            "ISL,0,0,0,0,1,3260.22,2018,2018,1,1,0,1,0.001,0.001,100000,100,"
+            "99900,8100000,81.0,81.0",
+            "ISL,0,0,0,0,1",
+            "garbage",
+        ]
+        total, malformed, dropped = count_source_lines(
+            io.BytesIO("\n".join(lines).encode())
+        )
+        assert (total, malformed) == (3, 2)
+        assert dropped == []
+
 
 class TestSessionCache:
     """The suite's own cache of built tables must not outlive the build format."""

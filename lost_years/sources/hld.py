@@ -190,6 +190,10 @@ def count_source_lines(handle: IO[bytes]) -> tuple[int, int, list[dict[str, Any]
             continue
         malformed += 1
         fields = line.decode("latin-1").split(",")
+        # A line cut short -- a truncated file, or stray text -- is malformed
+        # too, but has no table key to attribute it to.
+        if len(fields) <= RAW_YEAR2:
+            continue
         codes = [code.strip() for code in fields[RAW_SUBPOPULATION_CODES]]
         if all(code in {NATIONAL_CODE, "NA", ""} for code in codes):
             key = (
