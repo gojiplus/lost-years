@@ -155,7 +155,8 @@ class Source(ABC):
             The destination path.
 
         Raises:
-            SourceUnavailableError: When upstream refuses, or the transfer is short.
+            SourceUnavailableError: When upstream refuses, the connection drops
+                mid-transfer, or the transfer is short.
         """
         logger.info("Downloading %s", url)
         try:
@@ -175,10 +176,17 @@ class Source(ABC):
             )
         declared = response.headers.get("Content-Length")
         written = 0
-        with target.open("wb") as handle:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                handle.write(chunk)
-                written += len(chunk)
+        # The body streams after the status line, so a connection that drops
+        # mid-transfer surfaces here, not from requests.get.
+        try:
+            with target.open("wb") as handle:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    handle.write(chunk)
+                    written += len(chunk)
+        except requests.RequestException as exc:
+            raise SourceUnavailableError(
+                f"{self.name}: transfer from {url} broke after {written} bytes: {exc}"
+            ) from exc
         if declared is not None and written != int(declared):
             raise SourceUnavailableError(
                 f"{self.name}: {url} announced {declared} bytes but delivered "

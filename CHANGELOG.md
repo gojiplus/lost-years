@@ -10,6 +10,8 @@ Releases before 0.7.0 predate this file; see the
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-07
+
 ### Changed
 
 - **`hld.zip` is no longer in the repository.** lifetable.de's user agreement
@@ -27,6 +29,15 @@ Releases before 0.7.0 predate this file; see the
 
 ### Fixed
 
+- A connection that dropped part-way through a download escaped
+  `lost_years update` as a raw `requests` exception instead of the
+  `SourceUnavailableError` a refused connection raises, so callers that handle
+  the latter -- the test suite's own retry included -- did not see it. Found
+  in independent review before release.
+- `count_source_lines` raised `IndexError` on a malformed line with fewer
+  fields than the key columns -- a file cut short mid-record, or stray text --
+  instead of counting it as malformed. Found in independent review before
+  release.
 - The HLD manifest asserted that every comma-decimal line it dropped belonged
   to a sub-national or sub-population table. That was true of the 2025-04-07
   release and is false of 2026-02-17, which writes Iceland's entire 2017
@@ -192,5 +203,6 @@ Releases before 0.7.0 predate this file; see the
 - Packaged data refresh and Python 3.12+ support.
 
 [Unreleased]: https://github.com/gojiplus/lost-years/commits/master
+[0.8.1]: https://pypi.org/project/lost-years/0.8.1/
 [0.8.0]: https://pypi.org/project/lost-years/0.8.0/
 [0.7.0]: https://pypi.org/project/lost-years/0.7.0/

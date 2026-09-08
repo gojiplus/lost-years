@@ -78,6 +78,37 @@ def fetch_hld_zip() -> Path:
     raise AssertionError("unreachable")
 
 
+# Build-note fields the suite reads, per source. A cache built by an older
+# version of the package can carry the right digest and still lack one of
+# these, so their presence is part of the cache key, alongside the digest.
+REQUIRED_BUILD_NOTES = {"hld": ("whole_country_tables_dropped",)}
+
+
+def cache_is_current(table: Path, raw: Path, required: tuple[str, ...] = ()) -> bool:
+    """Say whether a cached table was built from this archive by this code.
+
+    A table built from some other copy of the archive -- the maintainer
+    swapped in a newer release, say -- would make every provenance assertion
+    lie, and a table built by an older release of the package can be missing a
+    manifest field the suite now asserts on. Either means rebuild.
+
+    Args:
+        table: Cached Parquet table.
+        raw: The raw archive the suite will build from.
+        required: Build-note fields the manifest must carry.
+
+    Returns:
+        True when the cached table can be reused.
+    """
+    from lost_years.datasets import read_manifest, sha256
+
+    manifest = read_manifest(table) if table.exists() else None
+    if not manifest or manifest.get("raw_sha256") != sha256(raw):
+        return False
+    notes = manifest.get("build_notes", {})
+    return all(field in notes for field in required)
+
+
 def clear_table_caches() -> None:
     """Drop every in-process copy of a life table.
 
@@ -99,7 +130,6 @@ def life_tables() -> None:
     os.environ["LOST_YEARS_DATA_DIR"] = str(CACHE)
     CACHE.mkdir(parents=True, exist_ok=True)
 
-    from lost_years.datasets import read_manifest, sha256
     from lost_years.sources import REGISTRY
     from lost_years.update import update
 
@@ -112,11 +142,7 @@ def life_tables() -> None:
                 "repository, so the suite has nothing to build from"
             )
         table = CACHE / name / REGISTRY[name].filename
-        # A cached table built from some other copy of the archive -- the
-        # maintainer swapped in a newer release, say -- would make every
-        # provenance assertion lie, so the manifest's digest is the cache key.
-        manifest = read_manifest(table) if table.exists() else None
-        if manifest and manifest.get("raw_sha256") == sha256(raw):
+        if cache_is_current(table, raw, REQUIRED_BUILD_NOTES.get(name, ())):
             continue
         update(name, from_file=raw, destination=CACHE / name)
 

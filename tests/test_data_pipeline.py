@@ -27,11 +27,18 @@ from lost_years.datasets import (
     sha256,
     shipped_path,
 )
-from lost_years.sources import REGISTRY, get_source
+from lost_years.sources import REGISTRY, SourceUnavailableError, get_source
+from lost_years.sources.base import Source
 from lost_years.sources.hld import NCHS_USA_MALE_E0, count_source_lines
 from lost_years.update import STATE_DAMAGED, STATE_MISSING, status, update
 
-from .conftest import RAW, REPO, clear_table_caches
+from .conftest import (
+    RAW,
+    REPO,
+    REQUIRED_BUILD_NOTES,
+    cache_is_current,
+    clear_table_caches,
+)
 
 HLD_ZIP = RAW["hld"]
 WHO_JSON = RAW["who"]
@@ -221,6 +228,104 @@ class TestManifest:
                 "rows": 2,
             }
         ]
+
+    def test_line_counter_survives_a_truncated_last_line(self):
+        """A line cut short mid-record is counted as malformed, not a crash."""
+        header = "Country,Region,Residence,Ethnicity,SocDem,Version,Ref-ID,Year1,Year2"
+        header += ",TypeLT,Sex,Age,AgeInt,m(x),q(x),l(x),d(x),L(x),T(x),e(x),e(x)Orig"
+        lines = [
+            header,
+            "ISL,0,0,0,0,1,3260.22,2018,2018,1,1,0,1,0.001,0.001,100000,100,"
+            "99900,8100000,81.0,81.0",
+            "ISL,0,0,0,0,1",
+            "garbage",
+        ]
+        total, malformed, dropped = count_source_lines(
+            io.BytesIO("\n".join(lines).encode())
+        )
+        assert (total, malformed) == (3, 2)
+        assert dropped == []
+
+
+class TestSessionCache:
+    """The suite's own cache of built tables must not outlive the build format."""
+
+    def test_cache_built_from_another_archive_is_stale(self, tmp_path):
+        """A manifest whose raw digest is not this archive's means rebuild."""
+        raw = tmp_path / "hld.zip"
+        raw.write_bytes(b"one archive")
+        table = tmp_path / "hld.parquet"
+        table.write_bytes(b"")
+        manifest_for(table).write_text(
+            json.dumps({"raw_sha256": "not this one", "build_notes": {}})
+        )
+        assert cache_is_current(table, raw) is False
+
+    def test_cache_from_an_older_build_format_is_stale(self, tmp_path):
+        """Same archive, but a manifest predating a field the suite reads: rebuild."""
+        raw = tmp_path / "hld.zip"
+        raw.write_bytes(b"one archive")
+        table = tmp_path / "hld.parquet"
+        table.write_bytes(b"")
+        manifest_for(table).write_text(
+            json.dumps({"raw_sha256": sha256(raw), "build_notes": {}})
+        )
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES["hld"]) is False
+
+    def test_cache_from_this_archive_and_format_is_current(self, tmp_path):
+        """Digest and every field the suite reads present: reuse."""
+        raw = tmp_path / "hld.zip"
+        raw.write_bytes(b"one archive")
+        table = tmp_path / "hld.parquet"
+        table.write_bytes(b"")
+        manifest_for(table).write_text(
+            json.dumps(
+                {
+                    "raw_sha256": sha256(raw),
+                    "build_notes": {"whole_country_tables_dropped": []},
+                }
+            )
+        )
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES["hld"]) is True
+
+    def test_a_source_with_no_required_notes_needs_only_the_digest(self, tmp_path):
+        """WHO carries none of HLD's fields and must not be rebuilt for them."""
+        raw = tmp_path / "who.json.gz"
+        raw.write_bytes(b"payload")
+        table = tmp_path / "who.parquet"
+        table.write_bytes(b"")
+        manifest_for(table).write_text(
+            json.dumps({"raw_sha256": sha256(raw), "build_notes": {}})
+        )
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES.get("who", ())) is True
+
+
+class TestDownload:
+    """Every way a transfer can fail surfaces as SourceUnavailableError."""
+
+    def test_connection_dropped_mid_body_is_reported_not_raised_raw(
+        self, tmp_path, monkeypatch
+    ):
+        """An exception while streaming the body is wrapped like a refused connect."""
+        import requests
+
+        class Broken:
+            status_code = 200
+
+            @property
+            def headers(self):
+                return {"Content-Length": "1000"}
+
+            def iter_content(self, chunk_size):
+                yield b"partial"
+                raise requests.exceptions.ChunkedEncodingError("connection broken")
+
+        monkeypatch.setattr(
+            "lost_years.sources.base.requests.get", lambda *a, **k: Broken()
+        )
+        source = get_source("hld")
+        with pytest.raises(SourceUnavailableError, match=r"cut short|broken"):
+            Source.download(source, "https://example.invalid/hld.zip", tmp_path / "x")
 
 
 class TestRefusesBadData:
