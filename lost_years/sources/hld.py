@@ -146,7 +146,14 @@ def normalise_code(codes: pd.Series) -> pd.Series:
     return out.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
 
 
-def count_source_lines(handle: IO[bytes]) -> tuple[int, int]:
+# Field positions in the raw header. Everything up to Year2 is a code or an
+# integer, so these fields are intact even on a line whose decimal commas have
+# thrown the later columns out of register.
+RAW_COUNTRY, RAW_REF_ID, RAW_YEAR1, RAW_YEAR2 = 0, 6, 7, 8
+RAW_SUBPOPULATION_CODES = slice(1, 5)
+
+
+def count_source_lines(handle: IO[bytes]) -> tuple[int, int, list[dict[str, Any]]]:
     """Count data lines and malformed data lines in the pooled file.
 
     This exists to cross-check the reader rather than to trust it. The pooled
@@ -155,23 +162,54 @@ def count_source_lines(handle: IO[bytes]) -> tuple[int, int]:
     declares and cannot be read; counting them here, without going through
     pandas, is an independent measure of how many rows the build drops.
 
+    Which tables those rows belong to matters as much as how many there are.
+    A dropped sub-population table costs nothing by default, but a dropped
+    whole-country table changes what a lookup answers -- the 2026-02-17
+    release writes Iceland's entire 2017 national table this way, so an ISL
+    2017 query finds no table at all -- and the manifest has to say so rather
+    than assert that nothing changed.
+
     Args:
         handle: Binary stream positioned at the start of the file.
 
     Returns:
-        Total data lines, and how many of them have the wrong field count.
+        Total data lines, how many of them have the wrong field count, and
+        the whole-country life tables among the latter, one record per table
+        with its row count.
     """
     header = handle.readline()
     expected = header.count(b",")
     total = 0
     malformed = 0
+    dropped: dict[tuple[str, str, str, str], int] = {}
     for line in handle:
         if not line.strip():
             continue
         total += 1
-        if line.count(b",") != expected:
-            malformed += 1
-    return total, malformed
+        if line.count(b",") == expected:
+            continue
+        malformed += 1
+        fields = line.decode("latin-1").split(",")
+        codes = [code.strip() for code in fields[RAW_SUBPOPULATION_CODES]]
+        if all(code in {NATIONAL_CODE, "NA", ""} for code in codes):
+            key = (
+                fields[RAW_COUNTRY].strip(),
+                fields[RAW_REF_ID].strip(),
+                fields[RAW_YEAR1].strip(),
+                fields[RAW_YEAR2].strip(),
+            )
+            dropped[key] = dropped.get(key, 0) + 1
+    tables = [
+        {
+            "country": country,
+            "ref_id": ref_id,
+            "year1": year1,
+            "year2": year2,
+            "rows": n,
+        }
+        for (country, ref_id, year1, year2), n in sorted(dropped.items())
+    ]
+    return total, malformed, tables
 
 
 class HLD(Source):
@@ -300,7 +338,7 @@ class HLD(Source):
                 disagree about how many rows the file holds.
         """
         with zipfile.ZipFile(raw) as archive, archive.open(ZIP_MEMBER) as stream:
-            total_lines, malformed_lines = count_source_lines(stream)
+            total_lines, malformed_lines, dropped_tables = count_source_lines(stream)
         with zipfile.ZipFile(raw) as archive, archive.open(ZIP_MEMBER) as stream:
             # Every column is read, not just the fifteen that are kept: the
             # field count is what identifies a malformed line, and restricting
@@ -321,6 +359,16 @@ class HLD(Source):
         logger.info(
             "Read %d HLD rows; dropped %d malformed lines", len(frame), malformed_lines
         )
+        for dropped in dropped_tables:
+            logger.warning(
+                "hld: whole-country table %s %s %s-%s is written with comma "
+                "decimals and cannot be read; %d rows dropped",
+                dropped["country"],
+                dropped["ref_id"],
+                dropped["year1"],
+                dropped["year2"],
+                dropped["rows"],
+            )
 
         table = self._normalise(frame)
         arrow = pa.Table.from_pandas(table, schema=self.schema(), preserve_index=False)
@@ -337,9 +385,12 @@ class HLD(Source):
             "rows_dropped_for_missing_key": int(len(frame) - len(table)),
             "malformed_line_note": (
                 "Life tables written with a comma decimal separator inside a "
-                "comma-delimited file. All belong to sub-national or "
-                "sub-population tables, so no whole-country answer changes."
+                "comma-delimited file cannot be read and are dropped. Any "
+                "whole-country table among them is listed in "
+                "whole_country_tables_dropped: a lookup for that country and "
+                "period finds no table where upstream publishes one."
             ),
+            "whole_country_tables_dropped": dropped_tables,
         }
 
     @staticmethod

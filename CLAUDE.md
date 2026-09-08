@@ -38,6 +38,16 @@
   note came from issuing `HEAD`, which lifetable.de answers with 405 while
   answering `GET` with 200. `lost_years update --source hld` fetches it.
 - ~56 MB zip holding one bare CSV named `res`, 21 columns, ~2.3M rows.
+- **Never commit hld.zip.** The user agreement says not to pass a copy to other
+  users, and a public repository is exactly that; it was purged from history
+  in September 2026. `data/hld/source/hld.zip` is gitignored: keep a local copy
+  there and the tests use it, otherwise `tests/conftest.py` downloads one into
+  `build/test-data/raw/`.
+- Throughput from lifetable.de varies a lot: ~390 KB/s from a GitHub runner
+  (56 MB in ~2.5 min), but 5-30 KB/s from a home connection on 2026-09-07.
+- Exact figures for a release (line counts, malformed lines, rows) live in
+  `KNOWN_HLD_RELEASES` in `tests/test_data_pipeline.py`; a fresh download of a
+  newer release skips those and still runs every identity and value check.
 - Most comprehensive international dataset; not redistributed, because
   lifetable.de asks that users download their own copy.
 

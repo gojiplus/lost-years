@@ -149,3 +149,7 @@ Desktop.ini
 dev/
 *.mmdb
 *.7z
+
+# The HLD archive is the user's own download, never committed: see
+# tests/conftest.py and lost_years/sources/hld.py for why.
+data/hld/source/hld.zip
