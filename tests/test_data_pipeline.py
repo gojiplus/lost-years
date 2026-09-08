@@ -7,6 +7,7 @@ and the table that was already installed has to survive the attempt untouched.
 """
 
 import gzip
+import io
 import json
 import shutil
 import zipfile
@@ -27,13 +28,66 @@ from lost_years.datasets import (
     shipped_path,
 )
 from lost_years.sources import REGISTRY, get_source
-from lost_years.sources.hld import NCHS_USA_MALE_E0
+from lost_years.sources.hld import NCHS_USA_MALE_E0, count_source_lines
 from lost_years.update import STATE_DAMAGED, STATE_MISSING, status, update
 
 from .conftest import RAW, REPO, clear_table_caches
 
 HLD_ZIP = RAW["hld"]
 WHO_JSON = RAW["who"]
+
+# Facts about the pooled file that only hold for one upstream release. The
+# suite builds from whatever copy of hld.zip it has -- the maintainer's or a
+# fresh download -- so exact figures are asserted only for a release they were
+# recorded against, and the identities that hold for every release are
+# asserted always. Add a row when a new release has been checked by hand.
+KNOWN_HLD_RELEASES = {
+    "2025-04-07": {
+        "source_data_lines": 2_183_719,
+        "malformed_lines_dropped": 1_290,
+        "rows": 2_182_429,
+        "whole_country_tables_dropped": [],
+    },
+    # Iceland's 2017 national table is the first whole-country table written
+    # with comma decimals: 96 single-year rows and 21 abridged rows per sex.
+    "2026-02-17": {
+        "source_data_lines": 2_320_744,
+        "malformed_lines_dropped": 1_560,
+        "rows": 2_319_184,
+        "whole_country_tables_dropped": [
+            {
+                "country": "ISL",
+                "ref_id": "3260.21",
+                "year1": "2017",
+                "year2": "2017",
+                "rows": 234,
+            }
+        ],
+    },
+}
+
+
+def hld_manifest() -> dict:
+    """Return the manifest of the HLD table the session built.
+
+    Returns:
+        The manifest.
+    """
+    manifest = read_manifest(resolve("hld", "hld.parquet"))
+    assert manifest is not None
+    return manifest
+
+
+def recorded_hld_facts() -> dict:
+    """Return the recorded figures for the installed HLD release, or skip.
+
+    Returns:
+        The entry in ``KNOWN_HLD_RELEASES`` for the installed release.
+    """
+    release = hld_manifest()["upstream_release"]
+    if release not in KNOWN_HLD_RELEASES:
+        pytest.skip(f"no figures recorded for HLD release {release}")
+    return KNOWN_HLD_RELEASES[release]
 
 
 class TestShippedTable:
@@ -112,19 +166,61 @@ class TestManifest:
         assert manifest["raw_sha256"] == sha256(RAW[name])
         assert [field["name"] for field in manifest["schema"]] == source.schema().names
 
-    def test_hld_manifest_counts_the_lines_it_could_not_read(self):
-        """The 1,290 comma-decimal lines are counted, not silently skipped."""
-        notes = read_manifest(resolve("hld", "hld.parquet"))["build_notes"]
-        assert notes["malformed_lines_dropped"] == 1290
-        assert notes["source_data_lines"] == 2183719
-        assert notes["source_data_lines"] - notes["malformed_lines_dropped"] == 2182429
-
-    def test_hld_release_comes_from_the_archive(self):
-        """The release identifier is read out of the artifact, not off a page."""
+    def test_hld_manifest_accounts_for_every_source_line(self):
+        """Rows read plus comma-decimal lines dropped account for the whole file."""
+        manifest = hld_manifest()
+        notes = manifest["build_notes"]
+        assert notes["malformed_lines_dropped"] > 0
         assert (
-            read_manifest(resolve("hld", "hld.parquet"))["upstream_release"]
-            == "2025-04-07"
+            notes["source_data_lines"] - notes["malformed_lines_dropped"]
+            == manifest["rows"]
         )
+        assert manifest["rows"] >= get_source("hld").min_rows
+
+    def test_hld_manifest_counts_the_lines_it_could_not_read(self):
+        """The comma-decimal lines are counted, not silently skipped."""
+        facts = recorded_hld_facts()
+        manifest = hld_manifest()
+        notes = manifest["build_notes"]
+        assert notes["malformed_lines_dropped"] == facts["malformed_lines_dropped"]
+        assert notes["source_data_lines"] == facts["source_data_lines"]
+        assert manifest["rows"] == facts["rows"]
+
+    def test_hld_manifest_names_the_whole_country_tables_it_dropped(self):
+        """A national table lost to comma decimals is recorded, not asserted away."""
+        facts = recorded_hld_facts()
+        notes = hld_manifest()["build_notes"]
+        assert (
+            notes["whole_country_tables_dropped"]
+            == facts["whole_country_tables_dropped"]
+        )
+
+    def test_line_counter_separates_national_from_subpopulation_losses(self):
+        """Only a malformed line with all-zero codes counts as a whole-country loss."""
+        header = "Country,Region,Residence,Ethnicity,SocDem,Version,Ref-ID,Year1,Year2"
+        header += ",TypeLT,Sex,Age,AgeInt,m(x),q(x),l(x),d(x),L(x),T(x),e(x),e(x)Orig"
+        tail = "0,001,0,001,100000,100,99900,8100000,81,0,81,0"
+        lines = [
+            header,
+            "ISL,0,0,0,0,1,3260.22,2018,2018,1,1,0,1,0.001,0.001,100000,100,"
+            "99900,8100000,81.0,81.0",
+            f"ISL,0,0,0,0,1,3260.21,2017,2017,1,1,0,1,{tail}",
+            f"ISL,0,0,0,0,1,3260.21,2017,2017,1,1,1,1,{tail}",
+            "",
+            f"ITA,200,0,0,0,1,392.09,2020,2020,1,1,0,1,{tail}",
+        ]
+        stream = io.BytesIO("\n".join(lines).encode())
+        total, malformed, dropped = count_source_lines(stream)
+        assert (total, malformed) == (4, 3)
+        assert dropped == [
+            {
+                "country": "ISL",
+                "ref_id": "3260.21",
+                "year1": "2017",
+                "year2": "2017",
+                "rows": 2,
+            }
+        ]
 
 
 class TestRefusesBadData:
@@ -220,7 +316,7 @@ class TestUpdateInstalls:
         assert result.replaced is False
         assert result.path == scratch_cache / "hld" / "hld.parquet"
         assert manifest_for(result.path).exists()
-        assert result.manifest["rows"] == 2_182_429
+        assert result.manifest["rows"] >= get_source("hld").min_rows
 
         clear_table_caches()
         row = lost_years_hld(
@@ -257,9 +353,10 @@ class TestStatus:
     def test_installed_table_reports_its_release(self):
         """The report reads the release out of the manifest."""
         report = status("hld", check_upstream=False)
+        manifest = hld_manifest()
         assert report.kind == "downloaded"
-        assert report.installed_release == "2025-04-07"
-        assert report.rows == 2_182_429
+        assert report.installed_release == manifest["upstream_release"]
+        assert report.rows == manifest["rows"]
 
     def test_a_table_that_no_longer_matches_its_manifest_is_flagged(self, seeded_cache):
         """An interrupted or edited install is reported, not read as if fine."""

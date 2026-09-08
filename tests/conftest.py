@@ -1,30 +1,81 @@
-"""Seed the life-table cache from the repository, so no test needs the network.
+"""Seed the life-table cache so no test needs the network more than once.
 
 The tables the lookups read are not shipped in the wheel; they are installed by
-``lost_years update``. The raw upstream artifacts they are built from *are* in
-the repository under ``data/<source>/source/``, so the suite builds the tables
-from those with the same code path a user runs, into a cache under ``build/``
-that persists between runs.
+``lost_years update``. The suite builds them with the same code path a user
+runs, into a cache under ``build/`` that persists between runs.
 
-The one thing this deliberately does not do is reach upstream. A test that
-wants to check the staleness report against the live site has to ask for the
-network explicitly.
+WHO's raw payload is CC BY 4.0 and 600 KB, so it is in the repository. HLD's is
+not: lifetable.de asks that users download their own copy rather than be
+handed one, and this suite is a user like any other. It reads the maintainer's
+own copy at ``data/hld/source/hld.zip`` when there is one (gitignored), and
+otherwise downloads one into the cache -- about 56 MB, two to three minutes on
+a GitHub runner. That is the one network access the suite makes on its own.
+Anything else that wants upstream has to ask for it explicitly.
 """
 
+import logging
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
 
+logger = logging.getLogger(__name__)
+
 REPO = Path(__file__).resolve().parent.parent
 CACHE = REPO / "build" / "test-data"
 
-# Source name -> the raw upstream artifact in the repository to build it from.
+LOCAL_HLD_ZIP = REPO / "data" / "hld" / "source" / "hld.zip"
+CACHED_HLD_ZIP = CACHE / "raw" / "hld.zip"
+
+# Source name -> the raw upstream artifact to build it from. The HLD path is
+# fixed at import time but may not exist until the session fixture has run.
 RAW = {
-    "hld": REPO / "data" / "hld" / "source" / "hld.zip",
+    "hld": LOCAL_HLD_ZIP if LOCAL_HLD_ZIP.exists() else CACHED_HLD_ZIP,
     "who": REPO / "data" / "who" / "source" / "WHOSIS_000001.json.gz",
 }
+
+
+def fetch_hld_zip() -> Path:
+    """Make sure the raw HLD archive is on disk, downloading it if it is not.
+
+    The download lands under a staging name and is renamed into place, so a
+    run killed mid-transfer leaves nothing a later run could mistake for a
+    complete archive. lifetable.de answers slowly and sometimes not at all when
+    several clients arrive together -- one of three CI jobs starting at the
+    same moment got a connect timeout -- so a refused or cut-short transfer is
+    retried a few times with a growing pause rather than failing the session.
+
+    Returns:
+        Path to the archive the suite will build from.
+    """
+    if RAW["hld"].exists():
+        return RAW["hld"]
+    from lost_years.sources import SourceUnavailableError
+    from lost_years.sources.hld import HLD
+
+    staging = CACHED_HLD_ZIP.parent / ".download"
+    staging.mkdir(parents=True, exist_ok=True)
+    attempts = 4
+    for attempt in range(1, attempts + 1):
+        try:
+            downloaded = HLD().fetch(staging)
+        except SourceUnavailableError as exc:
+            if attempt == attempts:
+                pytest.exit(
+                    f"could not download hld.zip after {attempts} attempts: {exc}. "
+                    f"Put a copy at {LOCAL_HLD_ZIP} to run the suite offline."
+                )
+            pause = 30 * attempt
+            logger.warning(
+                "hld.zip attempt %d failed (%s); retrying in %ds", attempt, exc, pause
+            )
+            time.sleep(pause)
+        else:
+            downloaded.replace(CACHED_HLD_ZIP)
+            return CACHED_HLD_ZIP
+    raise AssertionError("unreachable")
 
 
 def clear_table_caches() -> None:
@@ -48,18 +99,25 @@ def life_tables() -> None:
     os.environ["LOST_YEARS_DATA_DIR"] = str(CACHE)
     CACHE.mkdir(parents=True, exist_ok=True)
 
+    from lost_years.datasets import read_manifest, sha256
     from lost_years.sources import REGISTRY
     from lost_years.update import update
 
     for name, raw in RAW.items():
-        table = CACHE / name / REGISTRY[name].filename
-        if table.exists():
-            continue
-        if not raw.exists():
+        if name == "hld":
+            raw = fetch_hld_zip()
+        elif not raw.exists():
             pytest.exit(
                 f"cannot seed the {name} table: {raw} is missing from the "
                 "repository, so the suite has nothing to build from"
             )
+        table = CACHE / name / REGISTRY[name].filename
+        # A cached table built from some other copy of the archive -- the
+        # maintainer swapped in a newer release, say -- would make every
+        # provenance assertion lie, so the manifest's digest is the cache key.
+        manifest = read_manifest(table) if table.exists() else None
+        if manifest and manifest.get("raw_sha256") == sha256(raw):
+            continue
         update(name, from_file=raw, destination=CACHE / name)
 
 

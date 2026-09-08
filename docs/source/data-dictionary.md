@@ -75,8 +75,11 @@ no longer matches its manifest.
 **Source.** The pooled file at
 `https://www.lifetable.de/File/GetDocument/data/hld.zip`, a single ZIP holding
 one bare CSV named `res` (21 columns, 202 MB). The upstream codebook is
-archived at `data/hld/source/formats.pdf`; the raw archive this repository
-builds from is `data/hld/source/hld.zip`.
+archived at `data/hld/source/formats.pdf`. The archive itself is never in the
+repository: the test suite reads a maintainer's own copy at
+`data/hld/source/hld.zip` when one is present, and otherwise downloads one of
+its own into `build/test-data/`, which is exactly what lifetable.de asks of
+every user.
 
 **Release identifier.** The modification time of the `res` member inside the
 archive: the release lifetable.de labels 07.04.2025 carries `2025-04-07`.
@@ -91,7 +94,8 @@ the website.
 **Unit of observation of the file.** One row is *one age interval of one
 published life table*: country × sub-population × source publication × version
 × reference period × table type × sex × age. **2,182,429 rows, 45,330 life
-tables, 142 countries, 1751-2024.**
+tables, 142 countries, 1751-2024** in the 2025-04-07 release; later releases
+only grow.
 
 **Unit of observation of a lookup.** One row per input row, from one life table.
 HLD is not an estimate per country-year, so this is a choice the package makes,
@@ -139,7 +143,7 @@ never selected. All 37 are sub-national, so no whole-country answer changes.
 
 | Defect | Extent | Handling |
 |---|---|---|
-| Life tables written with a **comma decimal separator inside a comma-delimited file**, so the row carries 25 or 26 fields where the header declares 21 | 1,290 lines in 5 tables: ITA region 200 (Ref-ID 392.09, 2020), MYS region 160 (1492.17, 2020), NZL ethnicities E020/E090/E350/E360 (3363, 3363.04-.06, 2017) | dropped, and **counted** — `build_notes.malformed_lines_dropped` records 1,290 and the build refuses to continue unless read rows plus dropped lines account for every data line. Reading them with `usecols` instead shifts every value one field left and yields e(x) of 99,775; all 5 tables are sub-national or sub-population, so no whole-country answer changes |
+| Life tables written with a **comma decimal separator inside a comma-delimited file**, so the row carries 25 or 26 fields where the header declares 21 | 2025-04-07 release: 1,290 lines in 5 tables, all sub-national or sub-population (ITA region 200, MYS region 160, NZL ethnicities E020/E090/E350/E360). 2026-02-17 release: 1,560 lines, and among them **Iceland's whole 2017 national table** (Ref-ID 3260.21, 234 rows), the only ISL table for that year | dropped, and **counted** -- `build_notes.malformed_lines_dropped` records the total and the build refuses to continue unless read rows plus dropped lines account for every data line. Reading them with `usecols` instead shifts every value one field left and yields e(x) of 99,775. Any whole-country table among the dropped lines is listed in `build_notes.whole_country_tables_dropped` and logged as a warning during `lost_years update`, because for that country and period a lookup returns `no eligible life table` where upstream publishes one |
 | `Region` written as the literal `NA` upstream, read as missing | 1,334 rows, 7 countries | treated as whole-country: the codebook has no "region unknown" code and every such row is a national table (NIU, KIR, NRU, and the single-year national tables for HUN 2018, IRN 2004, ISR 2013-17, SWE 2019) |
 | Sub-population codes and `Ref-ID` written as `0.0`, `10.0`, `1.0` by a float round-trip **in this package's own packaging** | 181,953 `Region` values and 20,868 `Ref-ID` values in the old shipped CSV | gone: the build reads those columns as text. A naive `== '0'` filter on the damaged file kept 550,429 national rows where 717,457 qualify |
 | Negative `AgeInt` | 37 rows, sub-national ITA and KOR | cannot define an interval, so dropped at selection |

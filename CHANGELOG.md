@@ -10,6 +10,32 @@ Releases before 0.7.0 predate this file; see the
 
 ## [Unreleased]
 
+### Changed
+
+- **`hld.zip` is no longer in the repository.** lifetable.de's user agreement
+  asks that users not pass their copy of the data to others, and a public
+  repository does exactly that; 0.8.0 kept the package clean but left the
+  54 MB archive at `data/hld/source/`, and the history also carried the old
+  `hld.csv.gz`, so a clone was 112 MB for a 100 KB package. The archive and
+  its predecessors were purged from history. The test suite now builds from a
+  local `data/hld/source/hld.zip` when the maintainer has one (gitignored),
+  and otherwise downloads its own copy once into `build/test-data/`.
+- Test assertions pinned to the 2025-04-07 HLD release (line counts, the
+  number of comma-decimal lines dropped, row totals) are now keyed by release
+  and skip on one they were not recorded against; the checks that hold for any
+  release run always.
+
+### Fixed
+
+- The HLD manifest asserted that every comma-decimal line it dropped belonged
+  to a sub-national or sub-population table. That was true of the 2025-04-07
+  release and is false of 2026-02-17, which writes Iceland's entire 2017
+  national table that way. The build now identifies the whole-country tables
+  among the dropped lines, records them in
+  `build_notes.whole_country_tables_dropped`, and warns during
+  `lost_years update`; for the 2026-02-17 release an ISL 2017 lookup returns
+  `no eligible life table` where upstream publishes one.
+
 ## [0.8.0] - 2026-08-20
 
 ### Added
