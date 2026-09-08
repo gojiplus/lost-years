@@ -13,11 +13,15 @@ a GitHub runner. That is the one network access the suite makes on its own.
 Anything else that wants upstream has to ask for it explicitly.
 """
 
+import logging
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
+
+logger = logging.getLogger(__name__)
 
 REPO = Path(__file__).resolve().parent.parent
 CACHE = REPO / "build" / "test-data"
@@ -38,20 +42,40 @@ def fetch_hld_zip() -> Path:
 
     The download lands under a staging name and is renamed into place, so a
     run killed mid-transfer leaves nothing a later run could mistake for a
-    complete archive.
+    complete archive. lifetable.de answers slowly and sometimes not at all when
+    several clients arrive together -- one of three CI jobs starting at the
+    same moment got a connect timeout -- so a refused or cut-short transfer is
+    retried a few times with a growing pause rather than failing the session.
 
     Returns:
         Path to the archive the suite will build from.
     """
     if RAW["hld"].exists():
         return RAW["hld"]
+    from lost_years.sources import SourceUnavailableError
     from lost_years.sources.hld import HLD
 
     staging = CACHED_HLD_ZIP.parent / ".download"
     staging.mkdir(parents=True, exist_ok=True)
-    downloaded = HLD().fetch(staging)
-    downloaded.replace(CACHED_HLD_ZIP)
-    return CACHED_HLD_ZIP
+    attempts = 4
+    for attempt in range(1, attempts + 1):
+        try:
+            downloaded = HLD().fetch(staging)
+        except SourceUnavailableError as exc:
+            if attempt == attempts:
+                pytest.exit(
+                    f"could not download hld.zip after {attempts} attempts: {exc}. "
+                    f"Put a copy at {LOCAL_HLD_ZIP} to run the suite offline."
+                )
+            pause = 30 * attempt
+            logger.warning(
+                "hld.zip attempt %d failed (%s); retrying in %ds", attempt, exc, pause
+            )
+            time.sleep(pause)
+        else:
+            downloaded.replace(CACHED_HLD_ZIP)
+            return CACHED_HLD_ZIP
+    raise AssertionError("unreachable")
 
 
 def clear_table_caches() -> None:
