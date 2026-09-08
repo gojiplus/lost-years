@@ -78,13 +78,13 @@ def fetch_hld_zip() -> Path:
     raise AssertionError("unreachable")
 
 
-# Build-note fields the suite reads. A cache built by an older version of the
-# package can carry the right digest and still lack one of these, so their
-# presence is part of the cache key, alongside the archive's digest.
-REQUIRED_BUILD_NOTES = ("whole_country_tables_dropped",)
+# Build-note fields the suite reads, per source. A cache built by an older
+# version of the package can carry the right digest and still lack one of
+# these, so their presence is part of the cache key, alongside the digest.
+REQUIRED_BUILD_NOTES = {"hld": ("whole_country_tables_dropped",)}
 
 
-def cache_is_current(table: Path, raw: Path) -> bool:
+def cache_is_current(table: Path, raw: Path, required: tuple[str, ...] = ()) -> bool:
     """Say whether a cached table was built from this archive by this code.
 
     A table built from some other copy of the archive -- the maintainer
@@ -95,6 +95,7 @@ def cache_is_current(table: Path, raw: Path) -> bool:
     Args:
         table: Cached Parquet table.
         raw: The raw archive the suite will build from.
+        required: Build-note fields the manifest must carry.
 
     Returns:
         True when the cached table can be reused.
@@ -105,7 +106,7 @@ def cache_is_current(table: Path, raw: Path) -> bool:
     if not manifest or manifest.get("raw_sha256") != sha256(raw):
         return False
     notes = manifest.get("build_notes", {})
-    return all(field in notes for field in REQUIRED_BUILD_NOTES)
+    return all(field in notes for field in required)
 
 
 def clear_table_caches() -> None:
@@ -141,7 +142,7 @@ def life_tables() -> None:
                 "repository, so the suite has nothing to build from"
             )
         table = CACHE / name / REGISTRY[name].filename
-        if cache_is_current(table, raw):
+        if cache_is_current(table, raw, REQUIRED_BUILD_NOTES.get(name, ())):
             continue
         update(name, from_file=raw, destination=CACHE / name)
 

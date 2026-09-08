@@ -1,0 +1,976 @@
+diff --git a/.copier-answers.yml b/.copier-answers.yml
+index ac02c21..713d119 100644
+--- a/.copier-answers.yml
++++ b/.copier-answers.yml
+@@ -1,9 +1,9 @@
+ # Managed by copier — records template version for `copier update`. Do not edit.
+-_commit: v1.1.1
++_commit: v1.2.0
+ _src_path: gh:gojiplus/py-canon
+ author_email: suriyant@gmail.com
+ author_name: Suriyan Laohaprapanon
+-coverage_floor: 78
++coverage_floor: 88
+ default_branch: master
+ description: Get Expected Number of Years Lost
+ needs_cli: true
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 874caae..fca93ae 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -18,7 +18,8 @@ jobs:
+   ci:
+     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
+     with:
+-      # requires-python floors at 3.12, so the reusable default of 3.11 cannot resolve.
++      # Pinned rather than inherited: the reusable default tracks the fleet's
++      # floor, and requires-python here is >=3.12.
+       python-versions: '["3.12", "3.14"]'
+       wheel-import: lost_years
+       # Measured 90% on this branch; two points of headroom.
+diff --git a/.gitignore b/.gitignore
+index f46c484..147c861 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -149,3 +149,7 @@ Desktop.ini
+ dev/
+ *.mmdb
+ *.7z
++
++# The HLD archive is the user's own download, never committed: see
++# tests/conftest.py and lost_years/sources/hld.py for why.
++data/hld/source/hld.zip
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 0b89921..fe57106 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,6 +10,43 @@ Releases before 0.7.0 predate this file; see the
+ 
+ ## [Unreleased]
+ 
++## [0.8.1] - 2026-09-07
++
++### Changed
++
++- **`hld.zip` is no longer in the repository.** lifetable.de's user agreement
++  asks that users not pass their copy of the data to others, and a public
++  repository does exactly that; 0.8.0 kept the package clean but left the
++  54 MB archive at `data/hld/source/`, and the history also carried the old
++  `hld.csv.gz`, so a clone was 112 MB for a 100 KB package. The archive and
++  its predecessors were purged from history. The test suite now builds from a
++  local `data/hld/source/hld.zip` when the maintainer has one (gitignored),
++  and otherwise downloads its own copy once into `build/test-data/`.
++- Test assertions pinned to the 2025-04-07 HLD release (line counts, the
++  number of comma-decimal lines dropped, row totals) are now keyed by release
++  and skip on one they were not recorded against; the checks that hold for any
++  release run always.
++
++### Fixed
++
++- A connection that dropped part-way through a download escaped
++  `lost_years update` as a raw `requests` exception instead of the
++  `SourceUnavailableError` a refused connection raises, so callers that handle
++  the latter -- the test suite's own retry included -- did not see it. Found
++  in independent review before release.
++- `count_source_lines` raised `IndexError` on a malformed line with fewer
++  fields than the key columns -- a file cut short mid-record, or stray text --
++  instead of counting it as malformed. Found in independent review before
++  release.
++- The HLD manifest asserted that every comma-decimal line it dropped belonged
++  to a sub-national or sub-population table. That was true of the 2025-04-07
++  release and is false of 2026-02-17, which writes Iceland's entire 2017
++  national table that way. The build now identifies the whole-country tables
++  among the dropped lines, records them in
++  `build_notes.whole_country_tables_dropped`, and warns during
++  `lost_years update`; for the 2026-02-17 release an ISL 2017 lookup returns
++  `no eligible life table` where upstream publishes one.
++
+ ## [0.8.0] - 2026-08-20
+ 
+ ### Added
+@@ -166,5 +203,6 @@ Releases before 0.7.0 predate this file; see the
+ - Packaged data refresh and Python 3.12+ support.
+ 
+ [Unreleased]: https://github.com/gojiplus/lost-years/commits/master
++[0.8.1]: https://pypi.org/project/lost-years/0.8.1/
+ [0.8.0]: https://pypi.org/project/lost-years/0.8.0/
+ [0.7.0]: https://pypi.org/project/lost-years/0.7.0/
+diff --git a/CITATION.cff b/CITATION.cff
+index 55ce104..778f6e2 100644
+--- a/CITATION.cff
++++ b/CITATION.cff
+@@ -4,8 +4,8 @@
+ cff-version: 1.2.0
+ message: "If you use this software, please cite it as below."
+ title: lost_years
+-version: 0.8.0
+-date-released: 2026-08-20
++version: 0.8.1
++date-released: 2026-09-07
+ url: https://github.com/gojiplus/lost-years
+ repository-code: https://github.com/gojiplus/lost-years
+ license: MIT
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 00591cb..c7c46a7 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -38,6 +38,16 @@
+   note came from issuing `HEAD`, which lifetable.de answers with 405 while
+   answering `GET` with 200. `lost_years update --source hld` fetches it.
+ - ~56 MB zip holding one bare CSV named `res`, 21 columns, ~2.3M rows.
++- **Never commit hld.zip.** The user agreement says not to pass a copy to other
++  users, and a public repository is exactly that; it was purged from history
++  in September 2026. `data/hld/source/hld.zip` is gitignored: keep a local copy
++  there and the tests use it, otherwise `tests/conftest.py` downloads one into
++  `build/test-data/raw/`.
++- Throughput from lifetable.de varies a lot: ~390 KB/s from a GitHub runner
++  (56 MB in ~2.5 min), but 5-30 KB/s from a home connection on 2026-09-07.
++- Exact figures for a release (line counts, malformed lines, rows) live in
++  `KNOWN_HLD_RELEASES` in `tests/test_data_pipeline.py`; a fresh download of a
++  newer release skips those and still runs every identity and value check.
+ - Most comprehensive international dataset; not redistributed, because
+   lifetable.de asks that users download their own copy.
+ 
+diff --git a/README.md b/README.md
+index db9acec..6e728c7 100644
+--- a/README.md
++++ b/README.md
+@@ -60,7 +60,7 @@ We illustrate the use of the package by estimating the average number of years b
+ **China:** Using data from [Table 1 of the paper](http://weekly.chinacdc.cn/en/article/id/e53946e2-c6c4-41e9-9a9b-fea8db1a8f51) that gives us the distribution of ages of people who died from COVID-19 in China, with conservative assumptions (assuming the gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost-years/blob/master/docs/source/examples/corona_virus.ipynb) that people's lives are shortened by **11.5 years** on average. Reproducing this takes an explicit choice: HLD's most recent Chinese life table is from **1981**, so `lost_years_hld` returns no match for a 2020 query unless you pass `year_tolerance=50`, and `hld_year1` then reports 1981. Earlier versions reached back those 39 years silently. These estimates are conservative for one additional reason: there is likely an inverse correlation between people who die and their expected longevity. And note that given a bulk of the deaths are among older people, when people are more infirm, the quality-adjusted years lost is likely yet more modest. Given that the last life tables from China are from 1981 and given life expectancy in China has risen substantially since then (though most gains come from reductions in childhood mortality, etc.), we exploit the recent data from the US, simulating what the losses would be if people had the same aggregate life tables as Americans. Using the most recent SSA data, we find the number to be **15.5**. Compare this to deaths from road accidents, the modal reason for death among 5-24, and 25-44 ages in the US. Assuming everyone who dies from a traffic accident is a man, and assuming the age of death to be 25, we get **51 years**, roughly 3x as large as coronavirus.
+ 
+ 
+-**France:** Using [COVID-19 Electronic Death Certification Data (CEPIDC)](https://www.data.gouv.fr/fr/datasets/donnees-de-certification-electronique-des-deces-associes-au-covid-19-cepidc/), like above, we estimate the average number of years lost by people dying of coronavirus. With conservative assumptions (assuming gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost-years/blob/master/docs/source/examples/corona_virus_fr.ipynb) that people's lives are shortened by **8.9 years** on average, matched against France's own 2020 life table. Surprisingly, the average number of years lost of the people dying of coronavirus [remained steady](https://github.com/gojiplus/lost-years/blob/master/docs/source/examples/corona_virus_fr_daily.ipynb) at about 9 years between March and July 2020. **That daily series cannot currently be reproduced.** It used age-specific WHO life tables, and the packaged WHO data has since been replaced with `WHOSIS_000001` — life expectancy at birth, carrying no age dimension. Restoring it means repointing the WHO loader at GHO indicator `LIFE_0000000035` (`ex` by age); until then `lost_years_who` answers only the at-birth question, and rejects an age column rather than ignoring one.
++**France:** Using [COVID-19 Electronic Death Certification Data (CEPIDC)](https://www.data.gouv.fr/fr/datasets/donnees-de-certification-electronique-des-deces-associes-au-covid-19-cepidc/), like above, we estimate the average number of years lost by people dying of coronavirus. With conservative assumptions (assuming gender of the dead person to be male, taking the middle of age ranges) [we find](https://github.com/gojiplus/lost-years/blob/master/docs/source/examples/corona_virus_fr.ipynb) that people's lives are shortened by **8.9 years** on average, matched against a French life table covering 2020. Surprisingly, the average number of years lost of the people dying of coronavirus [remained steady](https://github.com/gojiplus/lost-years/blob/master/docs/source/examples/corona_virus_fr_daily.ipynb) at about 9 years between March and July 2020. **That daily series cannot currently be reproduced.** It used age-specific WHO life tables, and the packaged WHO data has since been replaced with `WHOSIS_000001` -- life expectancy at birth, carrying no age dimension. Restoring it means repointing the WHO loader at GHO indicator `LIFE_0000000035` (`ex` by age); until then `lost_years_who` answers only the at-birth question, and rejects an age column rather than ignoring one.
+ 
+ 
+ ## Installation
+diff --git a/docs/source/data-dictionary.md b/docs/source/data-dictionary.md
+index 39dd1c7..c718a5d 100644
+--- a/docs/source/data-dictionary.md
++++ b/docs/source/data-dictionary.md
+@@ -75,8 +75,11 @@ no longer matches its manifest.
+ **Source.** The pooled file at
+ `https://www.lifetable.de/File/GetDocument/data/hld.zip`, a single ZIP holding
+ one bare CSV named `res` (21 columns, 202 MB). The upstream codebook is
+-archived at `data/hld/source/formats.pdf`; the raw archive this repository
+-builds from is `data/hld/source/hld.zip`.
++archived at `data/hld/source/formats.pdf`. The archive itself is never in the
++repository: the test suite reads a maintainer's own copy at
++`data/hld/source/hld.zip` when one is present, and otherwise downloads one of
++its own into `build/test-data/`, which is exactly what lifetable.de asks of
++every user.
+ 
+ **Release identifier.** The modification time of the `res` member inside the
+ archive: the release lifetable.de labels 07.04.2025 carries `2025-04-07`.
+@@ -91,7 +94,8 @@ the website.
+ **Unit of observation of the file.** One row is *one age interval of one
+ published life table*: country × sub-population × source publication × version
+ × reference period × table type × sex × age. **2,182,429 rows, 45,330 life
+-tables, 142 countries, 1751-2024.**
++tables, 142 countries, 1751-2024** in the 2025-04-07 release; later releases
++only grow.
+ 
+ **Unit of observation of a lookup.** One row per input row, from one life table.
+ HLD is not an estimate per country-year, so this is a choice the package makes,
+@@ -139,7 +143,7 @@ never selected. All 37 are sub-national, so no whole-country answer changes.
+ 
+ | Defect | Extent | Handling |
+ |---|---|---|
+-| Life tables written with a **comma decimal separator inside a comma-delimited file**, so the row carries 25 or 26 fields where the header declares 21 | 1,290 lines in 5 tables: ITA region 200 (Ref-ID 392.09, 2020), MYS region 160 (1492.17, 2020), NZL ethnicities E020/E090/E350/E360 (3363, 3363.04-.06, 2017) | dropped, and **counted** — `build_notes.malformed_lines_dropped` records 1,290 and the build refuses to continue unless read rows plus dropped lines account for every data line. Reading them with `usecols` instead shifts every value one field left and yields e(x) of 99,775; all 5 tables are sub-national or sub-population, so no whole-country answer changes |
++| Life tables written with a **comma decimal separator inside a comma-delimited file**, so the row carries 25 or 26 fields where the header declares 21 | 2025-04-07 release: 1,290 lines in 5 tables, all sub-national or sub-population (ITA region 200, MYS region 160, NZL ethnicities E020/E090/E350/E360). 2026-02-17 release: 1,560 lines, and among them **Iceland's whole 2017 national table** (Ref-ID 3260.21, 234 rows), the only ISL table for that year | dropped, and **counted** -- `build_notes.malformed_lines_dropped` records the total and the build refuses to continue unless read rows plus dropped lines account for every data line. Reading them with `usecols` instead shifts every value one field left and yields e(x) of 99,775. Any whole-country table among the dropped lines is listed in `build_notes.whole_country_tables_dropped` and logged as a warning during `lost_years update`, because for that country and period a lookup returns `no eligible life table` where upstream publishes one |
+ | `Region` written as the literal `NA` upstream, read as missing | 1,334 rows, 7 countries | treated as whole-country: the codebook has no "region unknown" code and every such row is a national table (NIU, KIR, NRU, and the single-year national tables for HUN 2018, IRN 2004, ISR 2013-17, SWE 2019) |
+ | Sub-population codes and `Ref-ID` written as `0.0`, `10.0`, `1.0` by a float round-trip **in this package's own packaging** | 181,953 `Region` values and 20,868 `Ref-ID` values in the old shipped CSV | gone: the build reads those columns as text. A naive `== '0'` filter on the damaged file kept 550,429 national rows where 717,457 qualify |
+ | Negative `AgeInt` | 37 rows, sub-national ITA and KOR | cannot define an interval, so dropped at selection |
+diff --git a/lost_years/sources/base.py b/lost_years/sources/base.py
+index fdd83ba..6d4bf72 100644
+--- a/lost_years/sources/base.py
++++ b/lost_years/sources/base.py
+@@ -155,7 +155,8 @@ class Source(ABC):
+             The destination path.
+ 
+         Raises:
+-            SourceUnavailableError: When upstream refuses, or the transfer is short.
++            SourceUnavailableError: When upstream refuses, the connection drops
++                mid-transfer, or the transfer is short.
+         """
+         logger.info("Downloading %s", url)
+         try:
+@@ -175,10 +176,17 @@ class Source(ABC):
+             )
+         declared = response.headers.get("Content-Length")
+         written = 0
+-        with target.open("wb") as handle:
+-            for chunk in response.iter_content(chunk_size=1024 * 1024):
+-                handle.write(chunk)
+-                written += len(chunk)
++        # The body streams after the status line, so a connection that drops
++        # mid-transfer surfaces here, not from requests.get.
++        try:
++            with target.open("wb") as handle:
++                for chunk in response.iter_content(chunk_size=1024 * 1024):
++                    handle.write(chunk)
++                    written += len(chunk)
++        except requests.RequestException as exc:
++            raise SourceUnavailableError(
++                f"{self.name}: transfer from {url} broke after {written} bytes: {exc}"
++            ) from exc
+         if declared is not None and written != int(declared):
+             raise SourceUnavailableError(
+                 f"{self.name}: {url} announced {declared} bytes but delivered "
+diff --git a/lost_years/sources/hld.py b/lost_years/sources/hld.py
+index d0fd191..1932607 100644
+--- a/lost_years/sources/hld.py
++++ b/lost_years/sources/hld.py
+@@ -146,7 +146,14 @@ def normalise_code(codes: pd.Series) -> pd.Series:
+     return out.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
+ 
+ 
+-def count_source_lines(handle: IO[bytes]) -> tuple[int, int]:
++# Field positions in the raw header. Everything up to Year2 is a code or an
++# integer, so these fields are intact even on a line whose decimal commas have
++# thrown the later columns out of register.
++RAW_COUNTRY, RAW_REF_ID, RAW_YEAR1, RAW_YEAR2 = 0, 6, 7, 8
++RAW_SUBPOPULATION_CODES = slice(1, 5)
++
++
++def count_source_lines(handle: IO[bytes]) -> tuple[int, int, list[dict[str, Any]]]:
+     """Count data lines and malformed data lines in the pooled file.
+ 
+     This exists to cross-check the reader rather than to trust it. The pooled
+@@ -155,23 +162,58 @@ def count_source_lines(handle: IO[bytes]) -> tuple[int, int]:
+     declares and cannot be read; counting them here, without going through
+     pandas, is an independent measure of how many rows the build drops.
+ 
++    Which tables those rows belong to matters as much as how many there are.
++    A dropped sub-population table costs nothing by default, but a dropped
++    whole-country table changes what a lookup answers -- the 2026-02-17
++    release writes Iceland's entire 2017 national table this way, so an ISL
++    2017 query finds no table at all -- and the manifest has to say so rather
++    than assert that nothing changed.
++
+     Args:
+         handle: Binary stream positioned at the start of the file.
+ 
+     Returns:
+-        Total data lines, and how many of them have the wrong field count.
++        Total data lines, how many of them have the wrong field count, and
++        the whole-country life tables among the latter, one record per table
++        with its row count.
+     """
+     header = handle.readline()
+     expected = header.count(b",")
+     total = 0
+     malformed = 0
++    dropped: dict[tuple[str, str, str, str], int] = {}
+     for line in handle:
+         if not line.strip():
+             continue
+         total += 1
+-        if line.count(b",") != expected:
+-            malformed += 1
+-    return total, malformed
++        if line.count(b",") == expected:
++            continue
++        malformed += 1
++        fields = line.decode("latin-1").split(",")
++        # A line cut short -- a truncated file, or stray text -- is malformed
++        # too, but has no table key to attribute it to.
++        if len(fields) <= RAW_YEAR2:
++            continue
++        codes = [code.strip() for code in fields[RAW_SUBPOPULATION_CODES]]
++        if all(code in {NATIONAL_CODE, "NA", ""} for code in codes):
++            key = (
++                fields[RAW_COUNTRY].strip(),
++                fields[RAW_REF_ID].strip(),
++                fields[RAW_YEAR1].strip(),
++                fields[RAW_YEAR2].strip(),
++            )
++            dropped[key] = dropped.get(key, 0) + 1
++    tables = [
++        {
++            "country": country,
++            "ref_id": ref_id,
++            "year1": year1,
++            "year2": year2,
++            "rows": n,
++        }
++        for (country, ref_id, year1, year2), n in sorted(dropped.items())
++    ]
++    return total, malformed, tables
+ 
+ 
+ class HLD(Source):
+@@ -300,7 +342,7 @@ class HLD(Source):
+                 disagree about how many rows the file holds.
+         """
+         with zipfile.ZipFile(raw) as archive, archive.open(ZIP_MEMBER) as stream:
+-            total_lines, malformed_lines = count_source_lines(stream)
++            total_lines, malformed_lines, dropped_tables = count_source_lines(stream)
+         with zipfile.ZipFile(raw) as archive, archive.open(ZIP_MEMBER) as stream:
+             # Every column is read, not just the fifteen that are kept: the
+             # field count is what identifies a malformed line, and restricting
+@@ -321,6 +363,16 @@ class HLD(Source):
+         logger.info(
+             "Read %d HLD rows; dropped %d malformed lines", len(frame), malformed_lines
+         )
++        for dropped in dropped_tables:
++            logger.warning(
++                "hld: whole-country table %s %s %s-%s is written with comma "
++                "decimals and cannot be read; %d rows dropped",
++                dropped["country"],
++                dropped["ref_id"],
++                dropped["year1"],
++                dropped["year2"],
++                dropped["rows"],
++            )
+ 
+         table = self._normalise(frame)
+         arrow = pa.Table.from_pandas(table, schema=self.schema(), preserve_index=False)
+@@ -337,9 +389,12 @@ class HLD(Source):
+             "rows_dropped_for_missing_key": int(len(frame) - len(table)),
+             "malformed_line_note": (
+                 "Life tables written with a comma decimal separator inside a "
+-                "comma-delimited file. All belong to sub-national or "
+-                "sub-population tables, so no whole-country answer changes."
++                "comma-delimited file cannot be read and are dropped. Any "
++                "whole-country table among them is listed in "
++                "whole_country_tables_dropped: a lookup for that country and "
++                "period finds no table where upstream publishes one."
+             ),
++            "whole_country_tables_dropped": dropped_tables,
+         }
+ 
+     @staticmethod
+diff --git a/pyproject.toml b/pyproject.toml
+index 7230d89..7c3b9f8 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -4,7 +4,7 @@ build-backend = "uv_build"
+ 
+ [project]
+ name = "lost_years"
+-version = "0.8.0"
++version = "0.8.1"
+ description = "Get Expected Number of Years Lost"
+ readme = "README.md"
+ license = "MIT"
+diff --git a/tests/conftest.py b/tests/conftest.py
+index e319888..8d0648c 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -1,32 +1,113 @@
+-"""Seed the life-table cache from the repository, so no test needs the network.
++"""Seed the life-table cache so no test needs the network more than once.
+ 
+ The tables the lookups read are not shipped in the wheel; they are installed by
+-``lost_years update``. The raw upstream artifacts they are built from *are* in
+-the repository under ``data/<source>/source/``, so the suite builds the tables
+-from those with the same code path a user runs, into a cache under ``build/``
+-that persists between runs.
+-
+-The one thing this deliberately does not do is reach upstream. A test that
+-wants to check the staleness report against the live site has to ask for the
+-network explicitly.
++``lost_years update``. The suite builds them with the same code path a user
++runs, into a cache under ``build/`` that persists between runs.
++
++WHO's raw payload is CC BY 4.0 and 600 KB, so it is in the repository. HLD's is
++not: lifetable.de asks that users download their own copy rather than be
++handed one, and this suite is a user like any other. It reads the maintainer's
++own copy at ``data/hld/source/hld.zip`` when there is one (gitignored), and
++otherwise downloads one into the cache -- about 56 MB, two to three minutes on
++a GitHub runner. That is the one network access the suite makes on its own.
++Anything else that wants upstream has to ask for it explicitly.
+ """
+ 
++import logging
+ import os
+ import shutil
++import time
+ from pathlib import Path
+ 
+ import pytest
+ 
++logger = logging.getLogger(__name__)
++
+ REPO = Path(__file__).resolve().parent.parent
+ CACHE = REPO / "build" / "test-data"
+ 
+-# Source name -> the raw upstream artifact in the repository to build it from.
++LOCAL_HLD_ZIP = REPO / "data" / "hld" / "source" / "hld.zip"
++CACHED_HLD_ZIP = CACHE / "raw" / "hld.zip"
++
++# Source name -> the raw upstream artifact to build it from. The HLD path is
++# fixed at import time but may not exist until the session fixture has run.
+ RAW = {
+-    "hld": REPO / "data" / "hld" / "source" / "hld.zip",
++    "hld": LOCAL_HLD_ZIP if LOCAL_HLD_ZIP.exists() else CACHED_HLD_ZIP,
+     "who": REPO / "data" / "who" / "source" / "WHOSIS_000001.json.gz",
+ }
+ 
+ 
++def fetch_hld_zip() -> Path:
++    """Make sure the raw HLD archive is on disk, downloading it if it is not.
++
++    The download lands under a staging name and is renamed into place, so a
++    run killed mid-transfer leaves nothing a later run could mistake for a
++    complete archive. lifetable.de answers slowly and sometimes not at all when
++    several clients arrive together -- one of three CI jobs starting at the
++    same moment got a connect timeout -- so a refused or cut-short transfer is
++    retried a few times with a growing pause rather than failing the session.
++
++    Returns:
++        Path to the archive the suite will build from.
++    """
++    if RAW["hld"].exists():
++        return RAW["hld"]
++    from lost_years.sources import SourceUnavailableError
++    from lost_years.sources.hld import HLD
++
++    staging = CACHED_HLD_ZIP.parent / ".download"
++    staging.mkdir(parents=True, exist_ok=True)
++    attempts = 4
++    for attempt in range(1, attempts + 1):
++        try:
++            downloaded = HLD().fetch(staging)
++        except SourceUnavailableError as exc:
++            if attempt == attempts:
++                pytest.exit(
++                    f"could not download hld.zip after {attempts} attempts: {exc}. "
++                    f"Put a copy at {LOCAL_HLD_ZIP} to run the suite offline."
++                )
++            pause = 30 * attempt
++            logger.warning(
++                "hld.zip attempt %d failed (%s); retrying in %ds", attempt, exc, pause
++            )
++            time.sleep(pause)
++        else:
++            downloaded.replace(CACHED_HLD_ZIP)
++            return CACHED_HLD_ZIP
++    raise AssertionError("unreachable")
++
++
++# Build-note fields the suite reads. A cache built by an older version of the
++# package can carry the right digest and still lack one of these, so their
++# presence is part of the cache key, alongside the archive's digest.
++REQUIRED_BUILD_NOTES = ("whole_country_tables_dropped",)
++
++
++def cache_is_current(table: Path, raw: Path) -> bool:
++    """Say whether a cached table was built from this archive by this code.
++
++    A table built from some other copy of the archive -- the maintainer
++    swapped in a newer release, say -- would make every provenance assertion
++    lie, and a table built by an older release of the package can be missing a
++    manifest field the suite now asserts on. Either means rebuild.
++
++    Args:
++        table: Cached Parquet table.
++        raw: The raw archive the suite will build from.
++
++    Returns:
++        True when the cached table can be reused.
++    """
++    from lost_years.datasets import read_manifest, sha256
++
++    manifest = read_manifest(table) if table.exists() else None
++    if not manifest or manifest.get("raw_sha256") != sha256(raw):
++        return False
++    notes = manifest.get("build_notes", {})
++    return all(field in notes for field in REQUIRED_BUILD_NOTES)
++
++
+ def clear_table_caches() -> None:
+     """Drop every in-process copy of a life table.
+ 
+@@ -52,14 +133,16 @@ def life_tables() -> None:
+     from lost_years.update import update
+ 
+     for name, raw in RAW.items():
+-        table = CACHE / name / REGISTRY[name].filename
+-        if table.exists():
+-            continue
+-        if not raw.exists():
++        if name == "hld":
++            raw = fetch_hld_zip()
++        elif not raw.exists():
+             pytest.exit(
+                 f"cannot seed the {name} table: {raw} is missing from the "
+                 "repository, so the suite has nothing to build from"
+             )
++        table = CACHE / name / REGISTRY[name].filename
++        if cache_is_current(table, raw):
++            continue
+         update(name, from_file=raw, destination=CACHE / name)
+ 
+ 
+diff --git a/tests/test_data_pipeline.py b/tests/test_data_pipeline.py
+index 6f94abe..43b9786 100644
+--- a/tests/test_data_pipeline.py
++++ b/tests/test_data_pipeline.py
+@@ -7,6 +7,7 @@ and the table that was already installed has to survive the attempt untouched.
+ """
+ 
+ import gzip
++import io
+ import json
+ import shutil
+ import zipfile
+@@ -26,15 +27,69 @@ from lost_years.datasets import (
+     sha256,
+     shipped_path,
+ )
+-from lost_years.sources import REGISTRY, get_source
+-from lost_years.sources.hld import NCHS_USA_MALE_E0
++from lost_years.sources import REGISTRY, SourceUnavailableError, get_source
++from lost_years.sources.base import Source
++from lost_years.sources.hld import NCHS_USA_MALE_E0, count_source_lines
+ from lost_years.update import STATE_DAMAGED, STATE_MISSING, status, update
+ 
+-from .conftest import RAW, REPO, clear_table_caches
++from .conftest import RAW, REPO, cache_is_current, clear_table_caches
+ 
+ HLD_ZIP = RAW["hld"]
+ WHO_JSON = RAW["who"]
+ 
++# Facts about the pooled file that only hold for one upstream release. The
++# suite builds from whatever copy of hld.zip it has -- the maintainer's or a
++# fresh download -- so exact figures are asserted only for a release they were
++# recorded against, and the identities that hold for every release are
++# asserted always. Add a row when a new release has been checked by hand.
++KNOWN_HLD_RELEASES = {
++    "2025-04-07": {
++        "source_data_lines": 2_183_719,
++        "malformed_lines_dropped": 1_290,
++        "rows": 2_182_429,
++        "whole_country_tables_dropped": [],
++    },
++    # Iceland's 2017 national table is the first whole-country table written
++    # with comma decimals: 96 single-year rows and 21 abridged rows per sex.
++    "2026-02-17": {
++        "source_data_lines": 2_320_744,
++        "malformed_lines_dropped": 1_560,
++        "rows": 2_319_184,
++        "whole_country_tables_dropped": [
++            {
++                "country": "ISL",
++                "ref_id": "3260.21",
++                "year1": "2017",
++                "year2": "2017",
++                "rows": 234,
++            }
++        ],
++    },
++}
++
++
++def hld_manifest() -> dict:
++    """Return the manifest of the HLD table the session built.
++
++    Returns:
++        The manifest.
++    """
++    manifest = read_manifest(resolve("hld", "hld.parquet"))
++    assert manifest is not None
++    return manifest
++
++
++def recorded_hld_facts() -> dict:
++    """Return the recorded figures for the installed HLD release, or skip.
++
++    Returns:
++        The entry in ``KNOWN_HLD_RELEASES`` for the installed release.
++    """
++    release = hld_manifest()["upstream_release"]
++    if release not in KNOWN_HLD_RELEASES:
++        pytest.skip(f"no figures recorded for HLD release {release}")
++    return KNOWN_HLD_RELEASES[release]
++
+ 
+ class TestShippedTable:
+     """SSA is the one table inside the wheel, and it is typed Parquet."""
+@@ -112,19 +167,148 @@ class TestManifest:
+         assert manifest["raw_sha256"] == sha256(RAW[name])
+         assert [field["name"] for field in manifest["schema"]] == source.schema().names
+ 
++    def test_hld_manifest_accounts_for_every_source_line(self):
++        """Rows read plus comma-decimal lines dropped account for the whole file."""
++        manifest = hld_manifest()
++        notes = manifest["build_notes"]
++        assert notes["malformed_lines_dropped"] > 0
++        assert (
++            notes["source_data_lines"] - notes["malformed_lines_dropped"]
++            == manifest["rows"]
++        )
++        assert manifest["rows"] >= get_source("hld").min_rows
++
+     def test_hld_manifest_counts_the_lines_it_could_not_read(self):
+-        """The 1,290 comma-decimal lines are counted, not silently skipped."""
+-        notes = read_manifest(resolve("hld", "hld.parquet"))["build_notes"]
+-        assert notes["malformed_lines_dropped"] == 1290
+-        assert notes["source_data_lines"] == 2183719
+-        assert notes["source_data_lines"] - notes["malformed_lines_dropped"] == 2182429
+-
+-    def test_hld_release_comes_from_the_archive(self):
+-        """The release identifier is read out of the artifact, not off a page."""
++        """The comma-decimal lines are counted, not silently skipped."""
++        facts = recorded_hld_facts()
++        manifest = hld_manifest()
++        notes = manifest["build_notes"]
++        assert notes["malformed_lines_dropped"] == facts["malformed_lines_dropped"]
++        assert notes["source_data_lines"] == facts["source_data_lines"]
++        assert manifest["rows"] == facts["rows"]
++
++    def test_hld_manifest_names_the_whole_country_tables_it_dropped(self):
++        """A national table lost to comma decimals is recorded, not asserted away."""
++        facts = recorded_hld_facts()
++        notes = hld_manifest()["build_notes"]
+         assert (
+-            read_manifest(resolve("hld", "hld.parquet"))["upstream_release"]
+-            == "2025-04-07"
++            notes["whole_country_tables_dropped"]
++            == facts["whole_country_tables_dropped"]
++        )
++
++    def test_line_counter_separates_national_from_subpopulation_losses(self):
++        """Only a malformed line with all-zero codes counts as a whole-country loss."""
++        header = "Country,Region,Residence,Ethnicity,SocDem,Version,Ref-ID,Year1,Year2"
++        header += ",TypeLT,Sex,Age,AgeInt,m(x),q(x),l(x),d(x),L(x),T(x),e(x),e(x)Orig"
++        tail = "0,001,0,001,100000,100,99900,8100000,81,0,81,0"
++        lines = [
++            header,
++            "ISL,0,0,0,0,1,3260.22,2018,2018,1,1,0,1,0.001,0.001,100000,100,"
++            "99900,8100000,81.0,81.0",
++            f"ISL,0,0,0,0,1,3260.21,2017,2017,1,1,0,1,{tail}",
++            f"ISL,0,0,0,0,1,3260.21,2017,2017,1,1,1,1,{tail}",
++            "",
++            f"ITA,200,0,0,0,1,392.09,2020,2020,1,1,0,1,{tail}",
++        ]
++        stream = io.BytesIO("\n".join(lines).encode())
++        total, malformed, dropped = count_source_lines(stream)
++        assert (total, malformed) == (4, 3)
++        assert dropped == [
++            {
++                "country": "ISL",
++                "ref_id": "3260.21",
++                "year1": "2017",
++                "year2": "2017",
++                "rows": 2,
++            }
++        ]
++
++    def test_line_counter_survives_a_truncated_last_line(self):
++        """A line cut short mid-record is counted as malformed, not a crash."""
++        header = "Country,Region,Residence,Ethnicity,SocDem,Version,Ref-ID,Year1,Year2"
++        header += ",TypeLT,Sex,Age,AgeInt,m(x),q(x),l(x),d(x),L(x),T(x),e(x),e(x)Orig"
++        lines = [
++            header,
++            "ISL,0,0,0,0,1,3260.22,2018,2018,1,1,0,1,0.001,0.001,100000,100,"
++            "99900,8100000,81.0,81.0",
++            "ISL,0,0,0,0,1",
++            "garbage",
++        ]
++        total, malformed, dropped = count_source_lines(
++            io.BytesIO("\n".join(lines).encode())
++        )
++        assert (total, malformed) == (3, 2)
++        assert dropped == []
++
++
++class TestSessionCache:
++    """The suite's own cache of built tables must not outlive the build format."""
++
++    def test_cache_built_from_another_archive_is_stale(self, tmp_path):
++        """A manifest whose raw digest is not this archive's means rebuild."""
++        raw = tmp_path / "hld.zip"
++        raw.write_bytes(b"one archive")
++        table = tmp_path / "hld.parquet"
++        table.write_bytes(b"")
++        manifest_for(table).write_text(
++            json.dumps({"raw_sha256": "not this one", "build_notes": {}})
++        )
++        assert cache_is_current(table, raw) is False
++
++    def test_cache_from_an_older_build_format_is_stale(self, tmp_path):
++        """Same archive, but a manifest predating a field the suite reads: rebuild."""
++        raw = tmp_path / "hld.zip"
++        raw.write_bytes(b"one archive")
++        table = tmp_path / "hld.parquet"
++        table.write_bytes(b"")
++        manifest_for(table).write_text(
++            json.dumps({"raw_sha256": sha256(raw), "build_notes": {}})
++        )
++        assert cache_is_current(table, raw) is False
++
++    def test_cache_from_this_archive_and_format_is_current(self, tmp_path):
++        """Digest and every field the suite reads present: reuse."""
++        raw = tmp_path / "hld.zip"
++        raw.write_bytes(b"one archive")
++        table = tmp_path / "hld.parquet"
++        table.write_bytes(b"")
++        manifest_for(table).write_text(
++            json.dumps(
++                {
++                    "raw_sha256": sha256(raw),
++                    "build_notes": {"whole_country_tables_dropped": []},
++                }
++            )
++        )
++        assert cache_is_current(table, raw) is True
++
++
++class TestDownload:
++    """Every way a transfer can fail surfaces as SourceUnavailableError."""
++
++    def test_connection_dropped_mid_body_is_reported_not_raised_raw(
++        self, tmp_path, monkeypatch
++    ):
++        """An exception while streaming the body is wrapped like a refused connect."""
++        import requests
++
++        class Broken:
++            status_code = 200
++
++            @property
++            def headers(self):
++                return {"Content-Length": "1000"}
++
++            def iter_content(self, chunk_size):
++                yield b"partial"
++                raise requests.exceptions.ChunkedEncodingError("connection broken")
++
++        monkeypatch.setattr(
++            "lost_years.sources.base.requests.get", lambda *a, **k: Broken()
+         )
++        source = get_source("hld")
++        with pytest.raises(SourceUnavailableError, match=r"cut short|broken"):
++            Source.download(source, "https://example.invalid/hld.zip", tmp_path / "x")
+ 
+ 
+ class TestRefusesBadData:
+@@ -220,7 +404,7 @@ class TestUpdateInstalls:
+         assert result.replaced is False
+         assert result.path == scratch_cache / "hld" / "hld.parquet"
+         assert manifest_for(result.path).exists()
+-        assert result.manifest["rows"] == 2_182_429
++        assert result.manifest["rows"] >= get_source("hld").min_rows
+ 
+         clear_table_caches()
+         row = lost_years_hld(
+@@ -257,9 +441,10 @@ class TestStatus:
+     def test_installed_table_reports_its_release(self):
+         """The report reads the release out of the manifest."""
+         report = status("hld", check_upstream=False)
++        manifest = hld_manifest()
+         assert report.kind == "downloaded"
+-        assert report.installed_release == "2025-04-07"
+-        assert report.rows == 2_182_429
++        assert report.installed_release == manifest["upstream_release"]
++        assert report.rows == manifest["rows"]
+ 
+     def test_a_table_that_no_longer_matches_its_manifest_is_flagged(self, seeded_cache):
+         """An interrupted or edited install is reported, not read as if fine."""
+diff --git a/uv.lock b/uv.lock
+index 771d5b3..bf3259a 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -112,7 +112,7 @@ name = "cffi"
+ version = "2.1.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "pycparser" },
++    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
+ wheels = [
+@@ -611,7 +611,9 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/2e/7e/9ecd0285e3153532ae07aeb88063c43c72b4221cf0d4d123b02f3682e3ff/greenlet-3.5.5-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:49520f0c95a48b42cf55414b8e8479beb274ea70431afc33e3f79903c71f4380", size = 295809, upload-time = "2026-08-10T13:25:34.023Z" },
+     { url = "https://files.pythonhosted.org/packages/35/73/60e4bbcc89252037b18087f2ec16405d5b2d5be42dde191bbf3667e96102/greenlet-3.5.5-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:55272212cbc5f43d1d723725ab931f1939969b7e9523882ca58b55061769d053", size = 611910, upload-time = "2026-08-10T14:14:35.18Z" },
+     { url = "https://files.pythonhosted.org/packages/a4/17/cd5134be659cd4a443e7a61ae670dabec165a814c51162916d637b6dd38e/greenlet-3.5.5-cp312-cp312-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:655bca754a2ef4efcb0eb48a94d3f4593536d0f3d48f8ed44343c01d16a92f95", size = 624198, upload-time = "2026-08-10T14:27:25.229Z" },
++    { url = "https://files.pythonhosted.org/packages/9b/30/87c212b5c684d0e72974f1063b7a9687631e8985902c06e1016542c874e7/greenlet-3.5.5-cp312-cp312-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:6ca5d6ae0739e5764f2cfcfaa562ac5a990cbdaedca93251c5e3cf07c362371f", size = 629504, upload-time = "2026-08-10T14:30:07.967Z" },
+     { url = "https://files.pythonhosted.org/packages/78/ac/5c5b959999b6f09c3026b5dfe171575bc3121c5236ce74f495096f25b203/greenlet-3.5.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:147b25a42e5ca5be3d42356e8f608b37af715a1c196e9bf9d1627f3341adfe1d", size = 621439, upload-time = "2026-08-10T13:40:49.391Z" },
++    { url = "https://files.pythonhosted.org/packages/63/2c/eb487fafc9f50ffff2b1e0b697f70fb34bf150821c08ab225aacf5583a7e/greenlet-3.5.5-cp312-cp312-manylinux_2_39_riscv64.whl", hash = "sha256:1b5ed9162c0c098e0bbc2cf88a94f433c1b8926f831745252e099e5d83e17759", size = 432462, upload-time = "2026-08-10T14:30:02.309Z" },
+     { url = "https://files.pythonhosted.org/packages/c8/8b/6acf112ed8aee499f25b4d6949820fb02ac950ff9c1f3d793bd5be0599f2/greenlet-3.5.5-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:27493374cff1d1b7919dc8126547f2aea582737e3046147b434b1e12de56389b", size = 1581342, upload-time = "2026-08-10T14:15:05.653Z" },
+     { url = "https://files.pythonhosted.org/packages/b8/d7/734e5f198888876b42d7616ff6644c075baf6b8a2412deadd6b0e1b8b20c/greenlet-3.5.5-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:12e2ee66c2aba86133f10fd99d6a8856c6d351ffb7be0e4d52ef2cc5fbb705b2", size = 1645744, upload-time = "2026-08-10T13:40:30.353Z" },
+     { url = "https://files.pythonhosted.org/packages/de/30/1f42b88dc587b5899ee50616ad56ee40cafaf225df4fb829f10183c62a5c/greenlet-3.5.5-cp312-cp312-win_amd64.whl", hash = "sha256:49ddacd36af37735fab103846f4ee4d18a492dde72730d1699c0c8ebe30d9f18", size = 324171, upload-time = "2026-08-10T13:28:44.472Z" },
+@@ -619,7 +621,9 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/fb/3d/8cef5f724ec0d4add2af8961d504535ec60c3cca9e464f6d03bdba29d85b/greenlet-3.5.5-cp313-cp313-macosx_11_0_universal2.whl", hash = "sha256:b79fd2a5bc099b5e744f34c4c9a58954a5f4cb7529fb4b6e8446057d61b6edaa", size = 294730, upload-time = "2026-08-10T13:27:51.206Z" },
+     { url = "https://files.pythonhosted.org/packages/88/4b/8e7aa3f514273aecff30a16ab1bac09ff54cfc7e6860fdd8058c37ff2499/greenlet-3.5.5-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:634cf15a233a949136879dd388e25d3296e16f3f1e217d2456797b8579ebc6ed", size = 614536, upload-time = "2026-08-10T14:14:36.589Z" },
+     { url = "https://files.pythonhosted.org/packages/85/48/4e95e9dd5a8a397dc6a6345dd7f1935113d0fca4f85e89d3976da9cd988d/greenlet-3.5.5-cp313-cp313-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:499adea519f748407fc6806d20eedabac2884fd73b9f38d81236e190ba20dfef", size = 626924, upload-time = "2026-08-10T14:27:27.048Z" },
++    { url = "https://files.pythonhosted.org/packages/0e/84/eaa476d6bf3816828d0d70e80dcc36bf30a058233bd889e707e693f6e860/greenlet-3.5.5-cp313-cp313-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:f7278591501941bb2456af102bb9cd59aab48c6cfd6e2dd68fa1290bb0c49a42", size = 632726, upload-time = "2026-08-10T14:30:09.874Z" },
+     { url = "https://files.pythonhosted.org/packages/89/5d/398a1c71fa7a277deeb376c999979de6786f08fc2d5747a0b9d6e11738dd/greenlet-3.5.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2eabb980975cba5b93a95f6f69287d05fc05ac955bfd6a320a7c083eeb52c0b0", size = 623906, upload-time = "2026-08-10T13:40:50.501Z" },
++    { url = "https://files.pythonhosted.org/packages/d0/f2/0cc2849ede68579291e9c59b3ab6ec1958f98681cca5b14d8fc75bf674a4/greenlet-3.5.5-cp313-cp313-manylinux_2_39_riscv64.whl", hash = "sha256:4dfc7c4470354e7b09184d1a3a985761053a2fd694ddb5b5c80242afc2c8c90b", size = 434966, upload-time = "2026-08-10T14:30:03.729Z" },
+     { url = "https://files.pythonhosted.org/packages/04/1b/745450fc5ea9e0cb17d840d248f284db3363de736d362c7d2d883e3eadba/greenlet-3.5.5-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:03115c2e0a371999bf8ae616aa8d653f96641d4705c457aebaa187276e9f7537", size = 1581430, upload-time = "2026-08-10T14:15:06.853Z" },
+     { url = "https://files.pythonhosted.org/packages/d4/29/d51b296e3191bb15d3d81ec375af1909e4466c0f395d744ed475801798a9/greenlet-3.5.5-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4441153ffba21b90d3ca89fe3d31f5c093ae6c0bf0cfdfc98f54cde22f95b62e", size = 1645684, upload-time = "2026-08-10T13:40:32.133Z" },
+     { url = "https://files.pythonhosted.org/packages/12/63/369f1a1625e64e9e31df3963c6044056e3fdfa3fa3fdba3c54ffefa6e987/greenlet-3.5.5-cp313-cp313-win_amd64.whl", hash = "sha256:95c5b1f4b3a193f8a0c2de4bfdcb48d119f7f1063941f1de1f2168051b3e52dd", size = 324075, upload-time = "2026-08-10T13:26:58.974Z" },
+@@ -627,7 +631,9 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/7f/8c/080e881fa2be95ff1ddbd6994b2bab3b1a78df3b3fcab39306011764fcc7/greenlet-3.5.5-cp314-cp314-macosx_11_0_universal2.whl", hash = "sha256:d4a389a852e392a6366058651a20fa5ba40d979865aa81bea2ccbdc44805070d", size = 295309, upload-time = "2026-08-10T13:26:03.032Z" },
+     { url = "https://files.pythonhosted.org/packages/25/cc/0ac614e6586c0e42d4cc281a5819150f4f43685744a4c5ff77139286409d/greenlet-3.5.5-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:70b157cd319873e8b544ddc2de158f55bbd0a9b0218c8ce9332039801518e328", size = 661185, upload-time = "2026-08-10T14:14:37.867Z" },
+     { url = "https://files.pythonhosted.org/packages/5e/b9/6808725354be8ad305dfe5172377664fc9642d4fc043be246b3314cf4482/greenlet-3.5.5-cp314-cp314-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:8bdfd1424abcf26832961e766570cae79efdb9599d709088c9cb6ef82b194926", size = 673419, upload-time = "2026-08-10T14:27:28.652Z" },
++    { url = "https://files.pythonhosted.org/packages/eb/52/f005d579acde46c3d1cc3cab1c9f3d5708c8a3006a4120e8cf5da801afe9/greenlet-3.5.5-cp314-cp314-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:d98ef6f92e67c6dbf299dbfd8facc1b0d2d9cedf91e325e73b3d0373fe4309d8", size = 677863, upload-time = "2026-08-10T14:30:11.663Z" },
+     { url = "https://files.pythonhosted.org/packages/42/2e/40c509967da7f254680826a2fa0dd22138ec79946c70b97542d74cde8b43/greenlet-3.5.5-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:182de51c6b572a705f2fafaab2e783bcf7d2760940229dfe73086cbae037af3e", size = 670822, upload-time = "2026-08-10T13:40:51.833Z" },
++    { url = "https://files.pythonhosted.org/packages/c4/8a/a75f8a2bdcef3c358a3147cdc9db3aa83755f0a038f766ab0bedb66f512c/greenlet-3.5.5-cp314-cp314-manylinux_2_39_riscv64.whl", hash = "sha256:159df1942d88e8f784cbb38d6f18bdb365cd11319cfbb3e89623de2b97892d53", size = 480554, upload-time = "2026-08-10T14:30:05.171Z" },
+     { url = "https://files.pythonhosted.org/packages/2d/22/c3c2eee4a8fe191d6d1d183086c56133d646024e3d70bfd414829f64560b/greenlet-3.5.5-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:8fec3f165dfe332e490c3247c0f6c23b0bfc45f06496ad7f00ddb00e3d35e4dc", size = 1628469, upload-time = "2026-08-10T14:15:08.11Z" },
+     { url = "https://files.pythonhosted.org/packages/f7/87/25babd09b94cb1f03e71db815fde463f0262e40cfbd953d58a8d77311351/greenlet-3.5.5-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:c6ce25fee6cabc8bf22cb8b52e642cbb821be5b9aec8094d07ff03378141b8e9", size = 1691952, upload-time = "2026-08-10T13:40:33.502Z" },
+     { url = "https://files.pythonhosted.org/packages/2e/3d/5cc9701117ea4dc0eb7bf1f4f9b7888a6e2e5277ddfae095805ace50f2b6/greenlet-3.5.5-cp314-cp314-win_amd64.whl", hash = "sha256:7dffc5c859fe6059974df1e37d7923d654a83e2ae18fdd616994270e001115e1", size = 327458, upload-time = "2026-08-10T13:27:02.868Z" },
+@@ -635,14 +641,18 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/24/e0/50cd600b469e5734c72709b6b1838b6bc63f307b573c772c3132d6ecfe92/greenlet-3.5.5-cp314-cp314t-macosx_11_0_universal2.whl", hash = "sha256:0e5a7de979d764aea1f5b6e95cf92b5b37741b9823702041f34b126e7f690277", size = 305471, upload-time = "2026-08-10T13:26:20.568Z" },
+     { url = "https://files.pythonhosted.org/packages/75/a3/77acd66dfc6387b5219b2080806c0cabb73c10eb1bb44b413c40a62015ba/greenlet-3.5.5-cp314-cp314t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:fef01bd457f11fc158b130ca0027a3c365693280e8e231b65bdaf57999f39f5b", size = 672470, upload-time = "2026-08-10T14:14:39.058Z" },
+     { url = "https://files.pythonhosted.org/packages/b9/71/0d178142dca3ec19f46fb2212ae73d30ad53b9d548dc64804086033a7089/greenlet-3.5.5-cp314-cp314t-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:5173a72310725a74afc82c164f0e52cb8ad0de62f2bb623f24f6c0cc07d80272", size = 679973, upload-time = "2026-08-10T14:27:30.072Z" },
++    { url = "https://files.pythonhosted.org/packages/aa/ac/0d7887aa4bbfc9eba075cc428244dfc96f623478454d5ec81180d0d6bd5a/greenlet-3.5.5-cp314-cp314t-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:5e9ec2e7c98e895fcea0c5cc57b2606cf86ece6d0a56578f3eb225e2af4f0387", size = 681587, upload-time = "2026-08-10T14:30:13.519Z" },
+     { url = "https://files.pythonhosted.org/packages/6e/31/46eb8567302eaf787abf88d09df014e14ae3baf460af1b8b0efdbd3efcd5/greenlet-3.5.5-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:44f08341873200ba8a60a8bc14ace3d91f1754f7fa7bc66157714a8cd420a476", size = 676634, upload-time = "2026-08-10T13:40:53.004Z" },
++    { url = "https://files.pythonhosted.org/packages/4f/18/8d58ba1c429b0383e3219a3d0e0bba241d0444d8ed05b73349953c7d7c7b/greenlet-3.5.5-cp314-cp314t-manylinux_2_39_riscv64.whl", hash = "sha256:102817506f6090b5176c746a82603341a549b40e5c3d5b72a4c672228a918c41", size = 510175, upload-time = "2026-08-10T14:30:07.047Z" },
+     { url = "https://files.pythonhosted.org/packages/a3/e9/b88bbf5b29970cb84172dc2c32aa3e5e579ceb94c808e81c826454138850/greenlet-3.5.5-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:d246c0db9a2513cd45f019ba178ea4d4d4705bd210ee465e2c15d76a1ab13874", size = 1637320, upload-time = "2026-08-10T14:15:09.317Z" },
+     { url = "https://files.pythonhosted.org/packages/6d/8c/7631ed29cc6f0392f11830076e172ce4885e70b0bc2c1bce1731176d4b4e/greenlet-3.5.5-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:72507285b5caa1d17904a3f7c322ca780823a54170a0e04ec3f37bcc60d4db71", size = 1697412, upload-time = "2026-08-10T13:40:34.924Z" },
+     { url = "https://files.pythonhosted.org/packages/da/0f/f7dd935f9c4cb1be49098770587f54d8a78518e55c89bce86c4fb4109057/greenlet-3.5.5-cp314-cp314t-win_amd64.whl", hash = "sha256:7805655781fb8f28a55d05fe57ed61f5f10f1892fb587673e3bb5264f28041f0", size = 331514, upload-time = "2026-08-10T13:29:20.611Z" },
+     { url = "https://files.pythonhosted.org/packages/b7/e5/681b01f8fbc1b55232822f99e8f8afeb78a55a7c76a7bf9dbdc7ccb03a6d/greenlet-3.5.5-cp315-cp315-macosx_11_0_universal2.whl", hash = "sha256:c0db80fcd5b8aece93f66c64f78a786bbb6b96c5fe63ef5a5a4581ecf8bab206", size = 295975, upload-time = "2026-08-10T13:28:45.985Z" },
+     { url = "https://files.pythonhosted.org/packages/11/f2/69b488cd9e7267bf4b0fe8cdebf25d8d6df680d21bdf41150d23e23d6652/greenlet-3.5.5-cp315-cp315-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6b241c32f912ada659808d68e308c568baf577eebf757d15471472de0c18cfad", size = 666823, upload-time = "2026-08-10T14:14:40.222Z" },
+     { url = "https://files.pythonhosted.org/packages/84/d4/d5bc2fdebbdda0c94555925ba79948b8395d75a7f6a36cc85dce5bab9f11/greenlet-3.5.5-cp315-cp315-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:ef6a08349401d8eaf3cb12688ac8557de95788556b8631ef17555a4a173022c0", size = 677613, upload-time = "2026-08-10T14:27:31.543Z" },
++    { url = "https://files.pythonhosted.org/packages/65/53/4e13642efc4d7ad6554ecb2242a5be42666b2e1a067323e88dfc0124a04b/greenlet-3.5.5-cp315-cp315-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:37faa97daccb6d9f4c2141ce3118d023c3c5506864a7d8bdf726f665018c1f76", size = 681436, upload-time = "2026-08-10T14:30:14.839Z" },
+     { url = "https://files.pythonhosted.org/packages/bd/93/542d8a3a90f3b35c6ad8bf7e56a03010287f2cafa289a5b7985b5207db39/greenlet-3.5.5-cp315-cp315-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f2e3d061b8e13aec2f0441689b3c71b244a20e5d274a52cb0f7e31bd1d139552", size = 675930, upload-time = "2026-08-10T13:40:54.205Z" },
++    { url = "https://files.pythonhosted.org/packages/cd/32/188447c9a468d6977d2989397226b0c6b65ab6f4cf943f931643328512fc/greenlet-3.5.5-cp315-cp315-manylinux_2_39_riscv64.whl", hash = "sha256:b18007dc2473a7942fd157366b55f01da6fed7ce85318591005b419e0a439474", size = 487404, upload-time = "2026-08-10T14:30:08.903Z" },
+     { url = "https://files.pythonhosted.org/packages/52/b5/89c9f2e8460d71101037d47a1feed11928615a5edd42370be290e0657eeb/greenlet-3.5.5-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:9ab5f5b93655e77fe0d6c2dfd22b5eac751bb1f876d8ec21761b7c1fb9266007", size = 1633878, upload-time = "2026-08-10T14:15:10.693Z" },
+     { url = "https://files.pythonhosted.org/packages/b8/60/297de93f3b02ac78a5e04d32bb8bbe3080f4a73d8ed95016561463b70618/greenlet-3.5.5-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:f0e5a21bd4452a88cf032fc43c4a5b307ab1380eacb63b5988f9c0317885e773", size = 1696597, upload-time = "2026-08-10T13:40:36.252Z" },
+     { url = "https://files.pythonhosted.org/packages/18/25/54c6eaff4f337fb670215e89eb2d00d9499487b658e709d4b477be4a342e/greenlet-3.5.5-cp315-cp315-win_amd64.whl", hash = "sha256:469dbb0a78625642f4a626cfd0c6e8bccc0385b5e49189b6308bbe849ec88a8e", size = 327700, upload-time = "2026-08-10T13:28:06.752Z" },
+@@ -650,7 +660,9 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/10/e2/3144c0a116067ac1e30457b0139a94d60d1d36a86e015de68e9ac87cb3bc/greenlet-3.5.5-cp315-cp315t-macosx_11_0_universal2.whl", hash = "sha256:68184dfcf50ccaa8e864770fe0633a7e27250ea9329f8192ef47ee9ecfd78e1c", size = 306387, upload-time = "2026-08-10T13:27:00.897Z" },
+     { url = "https://files.pythonhosted.org/packages/5c/a1/cb4223a7e9b9f43b8807e8eb212358bfe2dfaa174a9ea2889eb1714dcba2/greenlet-3.5.5-cp315-cp315t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9ec0dc0e59dc9c61af5c47348365ccbbd7addfafe0a93b00336ff3da2907bdc6", size = 676472, upload-time = "2026-08-10T14:14:41.417Z" },
+     { url = "https://files.pythonhosted.org/packages/9e/cd/a154b4498e5d8f12ada291cfb3b8d596eadde2177f5bf09a9be699d2a446/greenlet-3.5.5-cp315-cp315t-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:e604f58e35833fc46ef20302bcb314dddbfd3fcf33a4f936216d51dd678d63ae", size = 684238, upload-time = "2026-08-10T14:27:32.946Z" },
++    { url = "https://files.pythonhosted.org/packages/ce/f4/e450a68a152f819491d8c7df6a8254e761d87e6a78759268961f8c5bd4dd/greenlet-3.5.5-cp315-cp315t-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:2888a3a38bc5ee5bb6c438372197152e815837e4fab7ed7a1f86ef18ffd58ad1", size = 686022, upload-time = "2026-08-10T14:30:15.96Z" },
+     { url = "https://files.pythonhosted.org/packages/bf/bb/b0031d260c2968a3c87deebc51d80c64e499377f993aafe06ee3b7488cc2/greenlet-3.5.5-cp315-cp315t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:40239b5384f96da3963585cc6d7eaa9b56f8ae67e8d92cc82dd9e202fc847de3", size = 681246, upload-time = "2026-08-10T13:40:55.402Z" },
++    { url = "https://files.pythonhosted.org/packages/18/23/17e63d6bf3b9c9b9dbea981b7f643a71f79603bdfb4f1c3a9cf353e22aed/greenlet-3.5.5-cp315-cp315t-manylinux_2_39_riscv64.whl", hash = "sha256:1e8d9391fe77f15649589a907cef972dbbd6352ef7ff7dc0492f658c0c26495f", size = 516951, upload-time = "2026-08-10T14:30:10.907Z" },
+     { url = "https://files.pythonhosted.org/packages/9a/07/da554b71ab88e649da146e1065d86a48a5c5d92e50ab74ef41b504aa7f56/greenlet-3.5.5-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:a1eaccf5c3a1d3e46dead602c72e6836731e8e245c9de6a27764567b6b62d4c0", size = 1642735, upload-time = "2026-08-10T14:15:11.92Z" },
+     { url = "https://files.pythonhosted.org/packages/78/76/26a3782a051677668af9d92beaa47cd87ba9dd5072f762961144a03dd4c6/greenlet-3.5.5-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:19e4e026fe20691f333b8eb1a3bc9625eceba8c3f9d62ec5a6f8581afbc6b5a5", size = 1700925, upload-time = "2026-08-10T13:40:37.656Z" },
+     { url = "https://files.pythonhosted.org/packages/28/d9/fe7baf4190c2ae71f267efb9de21b3172bb35bc0ed1ef53dd6027d658e33/greenlet-3.5.5-cp315-cp315t-win_amd64.whl", hash = "sha256:712aee154f648bde84634654bb38bb78c69ac640c37a45c9effed800735049d8", size = 331829, upload-time = "2026-08-10T13:26:48.851Z" },
+@@ -868,7 +880,7 @@ wheels = [
+ 
+ [[package]]
+ name = "lost-years"
+-version = "0.8.0"
++version = "0.8.1"
+ source = { editable = "." }
+ dependencies = [
+     { name = "lxml" },
+@@ -1438,7 +1450,7 @@ name = "pexpect"
+ version = "4.9.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ptyprocess" },
++    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
+ wheels = [
+@@ -1447,11 +1459,11 @@ wheels = [
+ 
+ [[package]]
+ name = "platformdirs"
+-version = "4.11.3"
++version = "4.11.5"
+ source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/b8/d7/e7bfbc86e9f99ff7807e24de7703f032e9c9ba80bb355cf26e0e9bc5a75e/platformdirs-4.11.3.tar.gz", hash = "sha256:66a73d38a849810252df809a3d8bcbda8e26f6c189920e7535ad608a48dbb5ab", size = 33050, upload-time = "2026-08-13T22:43:27.52Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/ea/06/cf1564dcc2e2261c8c8c6c05628dc8b418943bdae2a4e58640ceb2f770fa/platformdirs-4.11.5.tar.gz", hash = "sha256:e8b31f4f8bcbbedef91a6b57a706255e4f148d2a4e01648382a0a47342539173", size = 34823, upload-time = "2026-08-27T21:36:37.46Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/19/a9/c34aebedd3a4c9afe5101b1b8713710b3fec18087c8a36c35d2f909861bd/platformdirs-4.11.3-py3-none-any.whl", hash = "sha256:5ed065d443751de711da036041a7a214122efc4a4de393b3f4137ba5576540e7", size = 23491, upload-time = "2026-08-13T22:43:26.121Z" },
++    { url = "https://files.pythonhosted.org/packages/c7/12/6f3fcd5067a9cbf4f8664b32957973498da8b083455203c8d9cab83a725c/platformdirs-4.11.5-py3-none-any.whl", hash = "sha256:89f8d42695853b89c7170bd49bc3dc593f98a71e695ede88e06a3b247bc4563b", size = 23900, upload-time = "2026-08-27T21:36:36.227Z" },
+ ]
+ 
+ [[package]]
+@@ -1477,7 +1489,7 @@ wheels = [
+ 
+ [[package]]
+ name = "preen"
+-version = "0.4.1"
++version = "0.5.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+     { name = "codespell" },
+@@ -1485,6 +1497,7 @@ dependencies = [
+     { name = "deptry" },
+     { name = "lychee-bin" },
+     { name = "packaging" },
++    { name = "pathspec" },
+     { name = "pydoclint" },
+     { name = "pyright" },
+     { name = "pyyaml" },
+@@ -1492,10 +1505,11 @@ dependencies = [
+     { name = "ruff" },
+     { name = "tomlkit" },
+     { name = "typer" },
++    { name = "validate-pyproject" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/74/03/09820516d8991ff6d3f42e6b3844ab13357f99a0832adf0f2dedaee492dc/preen-0.4.1.tar.gz", hash = "sha256:2dcda2461d06d42eaafe1e0dc2450f8ff89e77879162ba9adf222a53d407bee0", size = 65864, upload-time = "2026-08-19T14:32:20.542Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/2e/10/f72d622975c2b521bb711b7536880bcd5005d7a22d46eee953701d63268c/preen-0.5.0.tar.gz", hash = "sha256:266315f80bd1db6ffc7195694fc41fe9e7fb5f788076d1739762235f30f78c3a", size = 89553, upload-time = "2026-08-26T16:21:26.277Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/f7/14/e25c9b630d69a8efdd635c9d8d4f9af216cfb5aeb44867066da8f079415e/preen-0.4.1-py3-none-any.whl", hash = "sha256:69a8f1ed40357c6ec47354140a97080638b4e5c98ad8799f1c12094f6e8764bb", size = 87691, upload-time = "2026-08-19T14:32:19.378Z" },
++    { url = "https://files.pythonhosted.org/packages/8c/64/1a519c8417ad54abfaacc961996ea619c44bf05fad6423b614c09b23c6d5/preen-0.5.0-py3-none-any.whl", hash = "sha256:dd0c5c2a396139b751f4231377eb10ab64b1232b431ba6deb1f66329a638c242", size = 113571, upload-time = "2026-08-26T16:21:24.995Z" },
+ ]
+ 
+ [[package]]
+@@ -2040,27 +2054,27 @@ wheels = [
+ 
+ [[package]]
+ name = "ruff"
+-version = "0.16.3"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/61/b3/3213589383f8f1b3938781bd1278713f6d18621a14992b3e81fefb8a5ef9/ruff-0.16.3.tar.gz", hash = "sha256:e76d33a347661a84b5be6d043d0347fdc745dfdcf825a8f4fed64b5e26eebdf2", size = 4891904, upload-time = "2026-08-13T15:17:13.381Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/bf/96/493770daebd68c0a67f1549fdf519f53be51fc435186c0585bcc272fd76c/ruff-0.16.3-py3-none-linux_armv6l.whl", hash = "sha256:0c5710e247a58a4521e66e124ba9a74655b414f61ba3a2e9e3811e11098f48f7", size = 10902799, upload-time = "2026-08-13T15:16:27.382Z" },
+-    { url = "https://files.pythonhosted.org/packages/5e/e6/2becf3942fddc29a29b8df47691d456fb1085391a694f74d84513251418c/ruff-0.16.3-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:fe155130631a2471fd2e14a7a664a4dfbd7194b8229c3d7b2a40b21178639081", size = 11135539, upload-time = "2026-08-13T15:16:30.87Z" },
+-    { url = "https://files.pythonhosted.org/packages/3e/1e/4b8b72f0d006dbf19326aa99f9ca0ee2ff374187c4d301cf529a51aa06fe/ruff-0.16.3-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e2ed719e14aa64d895c2ee922594a90a43c861a93f0575a95ff8c47cdbd13eb9", size = 10475095, upload-time = "2026-08-13T15:16:33.259Z" },
+-    { url = "https://files.pythonhosted.org/packages/92/32/2201fa49ba1f6c101ee321e83f051ac7a4b8d07b0ef6b4d3f2772b302275/ruff-0.16.3-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9e0b1da805eb043654645d74d5de1e5ce2edc686e40790d2b86f56d71cc06a84", size = 10668771, upload-time = "2026-08-13T15:16:35.65Z" },
+-    { url = "https://files.pythonhosted.org/packages/c3/66/4afc5c8363bd04d45effce1b7c8713ca037d7a6740b7451a2403a6e3a972/ruff-0.16.3-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:a37bdea0bbe21780f590bf437d6412c8c4e1b6cd010f91a65c2c40c5e5f5f870", size = 10699568, upload-time = "2026-08-13T15:16:38.195Z" },
+-    { url = "https://files.pythonhosted.org/packages/53/fd/c67d246bf36bf1698551c56de39e95cd07f70e64433e0098e6267d77061b/ruff-0.16.3-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:09571e6d1288ed9be475207a3ac04ada404f1cd898104be0f6ab8d7df438575b", size = 11499365, upload-time = "2026-08-13T15:16:40.623Z" },
+-    { url = "https://files.pythonhosted.org/packages/67/0b/00ecbceb99a263af7b12f6f05ac3c92bc47b905e91adc3f207a836e3bc01/ruff-0.16.3-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:2c18c5a101eb540010638cc1ff3c84944d3adb3df62b8d98ca8f22ba484d3413", size = 12311728, upload-time = "2026-08-13T15:16:43.564Z" },
+-    { url = "https://files.pythonhosted.org/packages/54/b2/b7b3bb54f4d3f7db504e476ad4ab8de530dceebe2c061384b2757ee419e8/ruff-0.16.3-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:8457c44f15033c85ddbb77b15d451df9e24e4bd03b628396dd3610cedc3b8f82", size = 11699896, upload-time = "2026-08-13T15:16:46.209Z" },
+-    { url = "https://files.pythonhosted.org/packages/c7/30/4c468429ac195addc5ee1b717b6ab1b66632786737ca3b2ed3443fb0c26a/ruff-0.16.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:294b95c4ae0cda9388525c2047778aa758d6b8d4bb876fd4e9eaa3ebc92343eb", size = 11058736, upload-time = "2026-08-13T15:16:48.823Z" },
+-    { url = "https://files.pythonhosted.org/packages/43/67/7a113cdaddf24b64d7f75b1242a99d04c82fcef4f6921fdbb832beaffb5f/ruff-0.16.3-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:3d0c7c40c87c2a820509c31ba007968da6e1306468c067b2d82fbfdbcd0e8474", size = 11586911, upload-time = "2026-08-13T15:16:51.913Z" },
+-    { url = "https://files.pythonhosted.org/packages/f1/c1/2e66f24c0f3ead25a5e660111778685e505e5da353c82802bf49f0cbe7b9/ruff-0.16.3-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:9f738c0fdfa8eed0b2ce7fb27ee7258208a92a68d7949e62aa15164bc7b389da", size = 10954265, upload-time = "2026-08-13T15:16:54.763Z" },
+-    { url = "https://files.pythonhosted.org/packages/c2/ba/4cee23bf52cba9a058d3726de623624daf50ef9638868edd86f4126157f6/ruff-0.16.3-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:fb785f0be25abe69d320415cd4f833b59e17ba7613d9ba6a958023b6bceb0a50", size = 10709886, upload-time = "2026-08-13T15:16:57.339Z" },
+-    { url = "https://files.pythonhosted.org/packages/82/df/7da7194fa5d9dc0a285f7e6fa5a4722e7c63faac0b45b614ded9314363a1/ruff-0.16.3-py3-none-musllinux_1_2_i686.whl", hash = "sha256:c5536e3acfbf9563085aa2be7b13c629c3077e902afc5b941ac44024dbb9f506", size = 11210392, upload-time = "2026-08-13T15:17:00.171Z" },
+-    { url = "https://files.pythonhosted.org/packages/35/85/7795f6e817af050e7517bf3e7aa9b061cce70ef33d280aad902c956c1ecf/ruff-0.16.3-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:a2d85c02f9b8e165d85e6779184d38c4132de12603dab59c51c28e22584f9e4d", size = 11626910, upload-time = "2026-08-13T15:17:03.299Z" },
+-    { url = "https://files.pythonhosted.org/packages/78/9b/475b927cf27a5cbbda3c7bafb69ed6ff77e1d7923d5d85f17c2749d7ae32/ruff-0.16.3-py3-none-win32.whl", hash = "sha256:388cdf2166642bd9b13d52b5932d3170f34f8abed7e8d9a855f1d84b83645a0a", size = 10931415, upload-time = "2026-08-13T15:17:05.726Z" },
+-    { url = "https://files.pythonhosted.org/packages/b2/99/e2a2bfc4fbf0a1e8a916bc9ebe6fe6c58cc34c28e0ffc6ce281d572d1c2e/ruff-0.16.3-py3-none-win_amd64.whl", hash = "sha256:e80a7d69ca2a6d1c4d352ec91458cdca6e56c83cdbcabd93e4abe1e53591d948", size = 11445993, upload-time = "2026-08-13T15:17:08.353Z" },
+-    { url = "https://files.pythonhosted.org/packages/69/3e/4132e539aed78c148854d4997a2685b0ed4dc4e87110b59ce528564e184e/ruff-0.16.3-py3-none-win_arm64.whl", hash = "sha256:b8ca152da82c1acc1fa8d5874b15951935f0eef46f10e6954c83859011b6178a", size = 11399302, upload-time = "2026-08-13T15:17:10.908Z" },
++version = "0.16.5"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/f3/85/c8e12473c93018f92d19dd988a294202e1c27426c47ec4de53ffb847b8d8/ruff-0.16.5.tar.gz", hash = "sha256:1b88500f9ffbcab3dedb0082c9f9492e91ec3d618aac1236a3e0189938f7040b", size = 4912003, upload-time = "2026-08-27T16:34:18.258Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/c6/b6/77c90a970fe2dae17a723acbd011043ea97c98d7deacccefdc4ba74ec512/ruff-0.16.5-py3-none-linux_armv6l.whl", hash = "sha256:12e5f673e774c35fbb62f288809c7653b73445f8ecec6b6063fd6ea3521aa14b", size = 10011941, upload-time = "2026-08-27T16:33:41.287Z" },
++    { url = "https://files.pythonhosted.org/packages/4b/46/6cf67cf6411885a1d6f7f6d801682f155536a85176d10b605e2ceffed8bd/ruff-0.16.5-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:eda58a5802de40e7ed5b32b64e0b32539338cc6fcd2c78f61e3ad6a0d79f51c3", size = 10204049, upload-time = "2026-08-27T16:33:44.056Z" },
++    { url = "https://files.pythonhosted.org/packages/46/fd/c8720ca7a090abf0c2fef4abe8a5ef6e5127ed15196d8886ff75a2b370e2/ruff-0.16.5-py3-none-macosx_11_0_arm64.whl", hash = "sha256:c5ae9a7b9a8875131f40f8fe967cc86abf899779efd663cb7ce3d572d01da7eb", size = 9809037, upload-time = "2026-08-27T16:33:46.257Z" },
++    { url = "https://files.pythonhosted.org/packages/43/45/a684caacdedaca180f52bacccc40bf0789d2c5a7c75f25324853e9eaedb5/ruff-0.16.5-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7b719b0a1f4d59710d283ab2965f621684a108a9e41da622e3b23f0326cd0025", size = 9964129, upload-time = "2026-08-27T16:33:48.352Z" },
++    { url = "https://files.pythonhosted.org/packages/9e/f2/5d2bcdaca6b5b93d1b4dfc166cd2aebf7680143a1b38a28759df13a94d31/ruff-0.16.5-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:2298f2780ed1be0c5cb1361e32ab7b1467f3cce7dabe101d2210a314f2fe42e9", size = 9821518, upload-time = "2026-08-27T16:33:50.57Z" },
++    { url = "https://files.pythonhosted.org/packages/aa/ff/011cce29accf9257d5974145b733fc653a37985ed6825413a3987cefbfe0/ruff-0.16.5-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:258f29035a2dd021e7861e631b227a5b3f14e50c1184c9a6a122c5f4576154d7", size = 10534835, upload-time = "2026-08-27T16:33:52.522Z" },
++    { url = "https://files.pythonhosted.org/packages/d7/5a/f0cf109bada9bba0e96c90c21c9f9251803f57225c32d293327a03c710d6/ruff-0.16.5-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:b9a4f0432966834019c74d1b7e5c51224305d7713f3d7faf3e7451f1a3be3cde", size = 11252550, upload-time = "2026-08-27T16:33:54.521Z" },
++    { url = "https://files.pythonhosted.org/packages/63/4d/1d481aaea2046c6a7ed7c291f9004c669cce3c087b6b376ed5b08271e3fe/ruff-0.16.5-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:b5eb3a8c3d0ade9cea42b591fd530368e8798380e30e0a308b85a5cf718f09ea", size = 10777949, upload-time = "2026-08-27T16:33:56.88Z" },
++    { url = "https://files.pythonhosted.org/packages/ee/34/ee245ca55f64443233034b3d02b03236b19242004281247c079390b7facd/ruff-0.16.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ef0f69e191a13a3c9816f63163c88790cb12cd157bbbb384e9c44745702ab105", size = 10311656, upload-time = "2026-08-27T16:33:59.12Z" },
++    { url = "https://files.pythonhosted.org/packages/a7/4d/c33a333e341c0a2b96c715b52d89a606f5a34cd4ac493cd9b8d0187186b8/ruff-0.16.5-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:0eeab41fbea2c42f98dfb9822cdccda9d24ba38d49f6dc945b5c236d48f0ef29", size = 10532125, upload-time = "2026-08-27T16:34:01.166Z" },
++    { url = "https://files.pythonhosted.org/packages/30/e1/a64cef78b40192497bb98a27a8aa8f2c98ee9ee15bc97f7712d94ef32937/ruff-0.16.5-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:f0768e9df4300713fff30733c87575f68b6f1d8de41184e505b7fdd9c0c95eaf", size = 10097648, upload-time = "2026-08-27T16:34:03.16Z" },
++    { url = "https://files.pythonhosted.org/packages/cc/4e/4cdc9ed3c3e109d2f71e62572a37457298d7bc7501ec3138babb7ed32bbd/ruff-0.16.5-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:95cc70cdc7aa80c338de356279d2adbeb2de0f520b9ecd8aba75b94e95e02f91", size = 9829344, upload-time = "2026-08-27T16:34:05.134Z" },
++    { url = "https://files.pythonhosted.org/packages/39/4a/31ed35ce31729955fc583ee0d176d6e784c1290cb0b0a75cb2134c1ab72a/ruff-0.16.5-py3-none-musllinux_1_2_i686.whl", hash = "sha256:d185c8398ded1bfd91c0c2cb258346307571eccc473a8490af8c3977399c384a", size = 10277117, upload-time = "2026-08-27T16:34:07.425Z" },
++    { url = "https://files.pythonhosted.org/packages/a8/a0/60356d86687b4b666d593df213f4dc3041750d024cb7bf2cfa81cfd65c2e/ruff-0.16.5-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:fb8e3a3c4c6a784150a7ced53b015f4b253fc2bf97a610886419ead64b4756ef", size = 10711653, upload-time = "2026-08-27T16:34:09.712Z" },
++    { url = "https://files.pythonhosted.org/packages/ed/20/656d67f5b25ca9bda4e02b1de25867b2954e1d19e03648060f167ad0f4cc/ruff-0.16.5-py3-none-win32.whl", hash = "sha256:288b0a5f080492fe5635db849f9e2e84aa3cce7b7f0e955997d416c507c76a26", size = 10034250, upload-time = "2026-08-27T16:34:11.8Z" },
++    { url = "https://files.pythonhosted.org/packages/5b/42/ee8e68a207b9127fcde6c3d7e197def432f346cb1af159e1fa14ca0d1cdc/ruff-0.16.5-py3-none-win_amd64.whl", hash = "sha256:ddc6385fb2137f616357ca03d6c74f4be987f80fed4008566b754f6032b8546f", size = 10516714, upload-time = "2026-08-27T16:34:13.963Z" },
++    { url = "https://files.pythonhosted.org/packages/73/e3/7df5a396e445b9ba49ce9a9437439a4d80042c61c0ade199abf8d16de1ac/ruff-0.16.5-py3-none-win_arm64.whl", hash = "sha256:a64abe90968719b851bb7cedffaa8753fbdbdadab483089682db623f3edc587e", size = 10391564, upload-time = "2026-08-27T16:34:16.064Z" },
+ ]
+ 
+ [[package]]
+@@ -2409,6 +2423,18 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+ ]
+ 
++[[package]]
++name = "validate-pyproject"
++version = "0.26"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "fastjsonschema" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/c9/ac/5a51cd7e1c294d1bd3389d792617e015d3eda981242c1bbd8b21ee7c8725/validate_pyproject-0.26.tar.gz", hash = "sha256:eb3e48eeed404761ca4bb45a91d1fa82d83bbaf3aedcfca4ee9483b4bb3e2b9e", size = 122053, upload-time = "2026-08-19T16:09:43.617Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/0b/de/0fdee664da979fc0dd99398da63ccf228cb21de46a154dbc19fbf43e4d29/validate_pyproject-0.26-py3-none-any.whl", hash = "sha256:ab3fa448d7178d44d1b06e4b526ab5136e3faa7a1b7e7c6320c8a17fc11a9a2e", size = 56119, upload-time = "2026-08-19T16:09:42.471Z" },
++]
++
+ [[package]]
+ name = "wcwidth"
+ version = "0.8.2"

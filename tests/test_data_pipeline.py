@@ -32,7 +32,13 @@ from lost_years.sources.base import Source
 from lost_years.sources.hld import NCHS_USA_MALE_E0, count_source_lines
 from lost_years.update import STATE_DAMAGED, STATE_MISSING, status, update
 
-from .conftest import RAW, REPO, cache_is_current, clear_table_caches
+from .conftest import (
+    RAW,
+    REPO,
+    REQUIRED_BUILD_NOTES,
+    cache_is_current,
+    clear_table_caches,
+)
 
 HLD_ZIP = RAW["hld"]
 WHO_JSON = RAW["who"]
@@ -264,7 +270,7 @@ class TestSessionCache:
         manifest_for(table).write_text(
             json.dumps({"raw_sha256": sha256(raw), "build_notes": {}})
         )
-        assert cache_is_current(table, raw) is False
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES["hld"]) is False
 
     def test_cache_from_this_archive_and_format_is_current(self, tmp_path):
         """Digest and every field the suite reads present: reuse."""
@@ -280,7 +286,18 @@ class TestSessionCache:
                 }
             )
         )
-        assert cache_is_current(table, raw) is True
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES["hld"]) is True
+
+    def test_a_source_with_no_required_notes_needs_only_the_digest(self, tmp_path):
+        """WHO carries none of HLD's fields and must not be rebuilt for them."""
+        raw = tmp_path / "who.json.gz"
+        raw.write_bytes(b"payload")
+        table = tmp_path / "who.parquet"
+        table.write_bytes(b"")
+        manifest_for(table).write_text(
+            json.dumps({"raw_sha256": sha256(raw), "build_notes": {}})
+        )
+        assert cache_is_current(table, raw, REQUIRED_BUILD_NOTES.get("who", ())) is True
 
 
 class TestDownload:
