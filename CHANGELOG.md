@@ -29,6 +29,11 @@ Releases before 0.7.0 predate this file; see the
 
 ### Fixed
 
+- A connection that dropped part-way through a download escaped
+  `lost_years update` as a raw `requests` exception instead of the
+  `SourceUnavailableError` a refused connection raises, so callers that handle
+  the latter -- the test suite's own retry included -- did not see it. Found
+  in independent review before release.
 - The HLD manifest asserted that every comma-decimal line it dropped belonged
   to a sub-national or sub-population table. That was true of the 2025-04-07
   release and is false of 2026-02-17, which writes Iceland's entire 2017
