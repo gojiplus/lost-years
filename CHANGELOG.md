@@ -10,6 +10,8 @@ Releases before 0.7.0 predate this file; see the
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-07
+
 ### Changed
 
 - **`hld.zip` is no longer in the repository.** lifetable.de's user agreement
@@ -192,5 +194,6 @@ Releases before 0.7.0 predate this file; see the
 - Packaged data refresh and Python 3.12+ support.
 
 [Unreleased]: https://github.com/gojiplus/lost-years/commits/master
+[0.8.1]: https://pypi.org/project/lost-years/0.8.1/
 [0.8.0]: https://pypi.org/project/lost-years/0.8.0/
 [0.7.0]: https://pypi.org/project/lost-years/0.7.0/
