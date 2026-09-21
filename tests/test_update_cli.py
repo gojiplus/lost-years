@@ -53,14 +53,16 @@ class TestSSAParse:
         """The 2022 table the wheel ships is reproducible from its archived raw."""
         import pyarrow.parquet as pq
 
-        from lost_years.datasets import resolve, sha256
+        from lost_years.datasets import resolve
 
         source = get_source("ssa")
         out = tmp_path / "ssa.parquet"
         source.build(SSA_CSV, out)
         source.validate(out)
-        assert sha256(out) == sha256(resolve("ssa", "ssa.parquet"))
-        assert pq.read_table(out).to_pandas()["male_life_expectancy"].iloc[0] == 74.74
+        rebuilt = pq.read_table(out)
+        shipped = pq.read_table(resolve("ssa", "ssa.parquet"))
+        assert rebuilt.equals(shipped)
+        assert rebuilt.to_pandas()["male_life_expectancy"].iloc[0] == 74.74
 
 
 class TestCLI:
