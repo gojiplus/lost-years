@@ -11,11 +11,11 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com" },
-    { name = "Gaurav Sood", email = "gsood07@gmail.com" },
+    { name = "Gaurav Sood" },
 ]
 maintainers = [
     { name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com" },
-    { name = "Gaurav Sood", email = "gsood07@gmail.com" },
+    { name = "Gaurav Sood" },
 ]
 requires-python = ">=3.12"
 dependencies = [
