@@ -20,7 +20,7 @@ jobs:
     with:
       # Pinned rather than inherited: the reusable default tracks the fleet's
       # floor, and requires-python here is >=3.12.
-      python-versions: '["3.12", "3.14"]'
+      python-versions: '["3.13", "3.14"]'
       wheel-import: lost_years
       # Measured 90% on this branch; two points of headroom.
       coverage-floor: 88
