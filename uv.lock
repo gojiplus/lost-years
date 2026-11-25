@@ -838,11 +838,11 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "lxml", specifier = ">=5" },
-    { name = "pandas" },
+    { name = "lxml", specifier = ">=5.3.0" },
+    { name = "pandas", specifier = ">=2.2.3" },
     { name = "platformdirs", specifier = ">=4" },
-    { name = "pyarrow", specifier = ">=15" },
-    { name = "requests" },
+    { name = "pyarrow", specifier = ">=18.0.0" },
+    { name = "requests", specifier = ">=2.0.0" },
 ]
 
 [package.metadata.requires-dev]
