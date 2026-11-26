@@ -842,7 +842,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "platformdirs", specifier = ">=4" },
     { name = "pyarrow", specifier = ">=18.0.0" },
-    { name = "requests", specifier = ">=2.0.0" },
+    { name = "requests", specifier = ">=2.32.2" },
 ]
 
 [package.metadata.requires-dev]

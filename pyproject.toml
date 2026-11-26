@@ -24,7 +24,7 @@ dependencies = [
     "pandas>=2.2.3",
     "platformdirs>=4",
     "pyarrow>=18.0.0",
-    "requests>=2.0.0",
+    "requests>=2.32.2",
 ]
 keywords = [
     "lost years",
