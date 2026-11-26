@@ -265,7 +265,7 @@ def select_life_expectancy(
     span = rows["year2"] - rows["year1"]
     rows = rows[span == span.min()]
 
-    interval = rows["age_interval"]
+    interval = rows["age_interval"].astype("float64")
     upper = rows["age"] + interval.where(interval != OPEN_AGE_INTERVAL, float("inf"))
     rows = rows[(interval > 0) & (rows["age"] <= age) & (upper > age)]
     if rows.empty:
