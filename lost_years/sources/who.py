@@ -263,7 +263,10 @@ class WHO(Source):
                 f"e.g. {outside.iloc[0].to_dict()}"
             )
         wide = frame.pivot_table(
-            index=["country_code", "year"], columns="sex_code", values="life_expectancy"
+            index=["country_code", "year"],
+            columns="sex_code",
+            values="life_expectancy",
+            observed=True,
         ).dropna()
         low = wide[["MLE", "FMLE"]].min(axis=1)
         high = wide[["MLE", "FMLE"]].max(axis=1)
