@@ -18,6 +18,7 @@ jobs:
   ci:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
+      run-lower-bounds: true
       # Pinned rather than inherited: the reusable default tracks the fleet's
       # floor, and requires-python here is >=3.12.
       python-versions: '["3.13", "3.14"]'

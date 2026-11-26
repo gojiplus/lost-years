@@ -20,11 +20,11 @@ maintainers = [
 requires-python = ">=3.13"
 dependencies = [
     # pandas.read_html needs a parser backend; lxml is the one pandas prefers.
-    "lxml>=5",
-    "pandas",
+    "lxml>=5.3.0",
+    "pandas>=2.2.3",
     "platformdirs>=4",
-    "pyarrow>=15",
-    "requests",
+    "pyarrow>=20.0.0",
+    "requests>=2.32.2",
 ]
 keywords = [
     "lost years",
